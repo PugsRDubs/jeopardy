@@ -79,38 +79,46 @@ function CreateBoard({ onBack }) {
           />
         </div>
         <div style={styles.editor}>
-          <div style={styles.categoryRow}>
-            {currentBoard.categories.map((cat, i) => (
-              <input
-                key={i}
-                value={cat}
-                onChange={(e) => updateField(['categories', i], e.target.value)}
-                placeholder={`Category ${i + 1}`}
-                style={styles.categoryInput}
-              />
-            ))}
-          </div>
-          {[0, 1, 2, 3, 4].map(row => (
-            <div key={row} style={styles.questionRow}>
-              <div style={styles.pointLabel}>{(row + 1) * 100}</div>
-              {currentBoard.categories.map((_, col) => (
-                <div key={col} style={styles.questionCell}>
-                  <input
-                    value={currentBoard.questions[col][row].question}
-                    onChange={(e) => updateField(['questions', col, row, 'question'], e.target.value)}
-                    placeholder="Question"
-                    style={styles.questionInput}
-                  />
-                  <input
-                    value={currentBoard.questions[col][row].answer}
-                    onChange={(e) => updateField(['questions', col, row, 'answer'], e.target.value)}
-                    placeholder="Answer"
-                    style={styles.answerInput}
-                  />
-                </div>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.pointHeader}></th>
+                {currentBoard.categories.map((cat, i) => (
+                  <th key={i} style={styles.catHeader}>
+                    <input
+                      value={cat}
+                      onChange={(e) => updateField(['categories', i], e.target.value)}
+                      placeholder={`Category ${i + 1}`}
+                      style={styles.catInput}
+                    />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[0, 1, 2, 3, 4].map(row => (
+                <tr key={row}>
+                  <td style={styles.pointCell}>{(row + 1) * 100}</td>
+                  {currentBoard.categories.map((_, col) => (
+                    <td key={col} style={styles.questionCell}>
+                      <input
+                        value={currentBoard.questions[col][row].question}
+                        onChange={(e) => updateField(['questions', col, row, 'question'], e.target.value)}
+                        placeholder="Question"
+                        style={styles.questionInput}
+                      />
+                      <input
+                        value={currentBoard.questions[col][row].answer}
+                        onChange={(e) => updateField(['questions', col, row, 'answer'], e.target.value)}
+                        placeholder="Answer"
+                        style={styles.answerInput}
+                      />
+                    </td>
+                  ))}
+                </tr>
               ))}
-            </div>
-          ))}
+            </tbody>
+          </table>
         </div>
       </div>
     )
@@ -235,16 +243,22 @@ const styles = {
   editor: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.5rem',
     overflowX: 'auto'
   },
-  categoryRow: {
-    display: 'flex',
-    gap: '0.5rem',
-    marginLeft: '60px'
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    tableLayout: 'fixed'
   },
-  categoryInput: {
-    flex: 1,
+  pointHeader: {
+    width: '60px',
+    padding: '0'
+  },
+  catHeader: {
+    padding: '0.3rem'
+  },
+  catInput: {
+    width: '100%',
     padding: '0.8rem',
     fontSize: '1rem',
     fontWeight: 'bold',
@@ -253,43 +267,44 @@ const styles = {
     border: 'none',
     borderRadius: '4px',
     textAlign: 'center',
-    outline: 'none'
+    outline: 'none',
+    boxSizing: 'border-box'
   },
-  questionRow: {
-    display: 'flex',
-    gap: '0.5rem',
-    alignItems: 'center'
-  },
-  pointLabel: {
+  pointCell: {
     width: '60px',
     textAlign: 'center',
     fontSize: '1rem',
     fontWeight: 'bold',
-    color: '#4361ee'
+    color: '#4361ee',
+    padding: '0.3rem',
+    verticalAlign: 'top'
   },
   questionCell: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.3rem'
+    padding: '0.3rem',
+    verticalAlign: 'top'
   },
   questionInput: {
+    width: '100%',
     padding: '0.5rem',
     fontSize: '0.85rem',
     background: '#2a2a4a',
     color: '#fff',
     border: '1px solid #4a4a6a',
     borderRadius: '4px',
-    outline: 'none'
+    outline: 'none',
+    boxSizing: 'border-box'
   },
   answerInput: {
+    width: '100%',
     padding: '0.5rem',
     fontSize: '0.85rem',
     background: '#1a1a2e',
     color: '#2ecc71',
     border: '1px solid #4a4a6a',
     borderRadius: '4px',
-    outline: 'none'
+    outline: 'none',
+    boxSizing: 'border-box',
+    marginTop: '0.3rem'
   }
 }
 

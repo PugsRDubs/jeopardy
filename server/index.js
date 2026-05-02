@@ -75,6 +75,12 @@ function broadcastPhase(game, phase, extra = {}) {
 }
 
 function handleQuestionEnd(game) {
+  const answer = game.currentQuestion
+    ? game.board.questions[game.currentQuestion.catIdx][game.currentQuestion.valIdx].answer
+    : ''
+  const question = game.currentQuestion
+    ? game.board.questions[game.currentQuestion.catIdx][game.currentQuestion.valIdx].question
+    : ''
   endQuestion(game)
   const playerList = game.players.map(p => ({ id: p.id, name: p.name, score: p.score, disconnected: p.disconnected }))
   io.to(game.hostId).emit('game:player-list', playerList)
@@ -83,8 +89,9 @@ function handleQuestionEnd(game) {
   if (leaderboard) {
     broadcastPhase(game, 'GAME_OVER', { leaderboard })
   } else {
-    game.phase = 'GRID'
-    broadcastPhase(game, 'GRID')
+    game.phase = 'QUESTION_ENDED'
+    io.to(game.hostId).emit('game:question-ended', { question, answer })
+    broadcastPhase(game, 'QUESTION_ENDED')
   }
 }
 
@@ -254,6 +261,7 @@ io.on('connection', (socket) => {
         question: game.board.questions[game.currentQuestion.catIdx][game.currentQuestion.valIdx].question,
         answer: game.board.questions[game.currentQuestion.catIdx][game.currentQuestion.valIdx].answer
       })
+      io.to(socket.id).emit('game:you-buzzed')
       broadcastPhase(game, 'ANSWERING')
     }
   })
@@ -311,6 +319,14 @@ io.on('connection', (socket) => {
     if (!game || game.hostId !== socket.id) return
     if (game.phase !== 'ANSWERING' && game.phase !== 'BUZZING') return
     handleQuestionEnd(game)
+  })
+
+  socket.on('game:continue', ({ code }) => {
+    const game = getGame(code)
+    if (!game || game.hostId !== socket.id) return
+    if (game.phase !== 'QUESTION_ENDED') return
+    game.phase = 'GRID'
+    broadcastPhase(game, 'GRID')
   })
 
   socket.on('disconnect', () => {

@@ -7,6 +7,7 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
   const [leaderboard, setLeaderboard] = useState(null)
   const [hostDisconnected, setHostDisconnected] = useState(false)
   const [canBuzz, setCanBuzz] = useState(false)
+  const [wasChosen, setWasChosen] = useState(false)
 
   useEffect(() => {
     socket.on('game:phase-change', ({ phase, leaderboard, failedPlayers }) => {
@@ -26,6 +27,9 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
         setScore(score)
       }
     })
+    socket.on('game:you-buzzed', () => {
+      setWasChosen(true)
+    })
     socket.on('host:disconnect', () => {
       setHostDisconnected(true)
       setTimeout(() => onDisconnect(), 3000)
@@ -33,9 +37,16 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
     return () => {
       socket.off('game:phase-change')
       socket.off('game:score-update')
+      socket.off('game:you-buzzed')
       socket.off('host:disconnect')
     }
   }, [socket, playerData.id, onDisconnect])
+
+  useEffect(() => {
+    if (phase !== 'ANSWERING') {
+      setWasChosen(false)
+    }
+  }, [phase])
 
   const handleBuzz = useCallback(() => {
     if (canBuzz) {
@@ -62,13 +73,14 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
     )
   }
 
-  if (phase === 'GRID' || phase === 'REVEALED') {
+  if (phase === 'GRID' || phase === 'REVEALED' || phase === 'QUESTION_ENDED') {
     return (
       <div style={styles.container}>
         <div style={styles.scoreDisplay}>
           <span style={styles.scoreLabel}>Score</span>
           <span style={styles.scoreValue}>{score}</span>
         </div>
+        <p style={styles.footerName}>{playerData.name}</p>
       </div>
     )
   }
@@ -82,6 +94,7 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
             <span style={styles.scoreValue}>{score}</span>
           </div>
           <BuzzerButton onBuzz={handleBuzz} />
+          <p style={styles.footerName}>{playerData.name}</p>
         </div>
       )
     }
@@ -92,6 +105,7 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
           <span style={styles.scoreValue}>{score}</span>
         </div>
         <p style={styles.text}>You cannot buzz</p>
+        <p style={styles.footerName}>{playerData.name}</p>
       </div>
     )
   }
@@ -103,7 +117,12 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
           <span style={styles.scoreLabel}>Score</span>
           <span style={styles.scoreValue}>{score}</span>
         </div>
-        <p style={styles.waiting}>Someone answered...</p>
+        {wasChosen ? (
+          <p style={styles.chosen}>You were chosen!</p>
+        ) : (
+          <p style={styles.waiting}>Someone answered...</p>
+        )}
+        <p style={styles.footerName}>{playerData.name}</p>
       </div>
     )
   }
@@ -133,6 +152,7 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
             </div>
           ))}
         </div>
+        <p style={styles.footerName}>{playerData.name}</p>
       </div>
     )
   }
@@ -187,6 +207,12 @@ const styles = {
     color: '#888',
     marginTop: '2rem'
   },
+  chosen: {
+    fontSize: '1.8rem',
+    color: '#2ecc71',
+    fontWeight: 'bold',
+    marginTop: '2rem'
+  },
   yourRank: {
     fontSize: '1.5rem',
     color: '#4361ee',
@@ -218,6 +244,12 @@ const styles = {
     color: '#fff',
     marginLeft: 'auto',
     fontWeight: 'bold'
+  },
+  footerName: {
+    position: 'fixed',
+    bottom: '1rem',
+    fontSize: '1.1rem',
+    color: '#666'
   }
 }
 

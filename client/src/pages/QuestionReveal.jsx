@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
-function QuestionReveal({ socket, gameCode, question, phase, onBack, onAnswerComplete }) {
+function QuestionReveal({ socket, gameCode, question, phase, onBack, onAnswerComplete, onContinue }) {
   const [firstBuzz, setFirstBuzz] = useState(null)
   const [playersFailed, setPlayersFailed] = useState([])
+  const [endedData, setEndedData] = useState(null)
   const buzzSoundRef = useRef(null)
   const correctSoundRef = useRef(null)
   const wrongSoundRef = useRef(null)
@@ -22,6 +23,19 @@ function QuestionReveal({ socket, gameCode, question, phase, onBack, onAnswerCom
     socket.on('game:first-buzz', handleFirstBuzz)
     return () => socket.off('game:first-buzz', handleFirstBuzz)
   }, [socket])
+
+  useEffect(() => {
+    socket.on('game:question-ended', (data) => {
+      setEndedData(data)
+    })
+    return () => socket.off('game:question-ended')
+  }, [socket])
+
+  useEffect(() => {
+    if (phase !== 'QUESTION_ENDED') {
+      setEndedData(null)
+    }
+  }, [phase])
 
   const handleStartBuzzing = useCallback(() => {
     socket.emit('game:start-buzzing', { code: gameCode })
@@ -58,6 +72,21 @@ function QuestionReveal({ socket, gameCode, question, phase, onBack, onAnswerCom
     socket.emit('game:cancel-answer', { code: gameCode })
     onAnswerComplete('cancelled')
   }, [socket, gameCode, onAnswerComplete])
+
+  if (phase === 'QUESTION_ENDED' && endedData) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.card}>
+          <h2 style={styles.questionText}>{endedData.question}</h2>
+          <p style={styles.answerLabel}>Answer:</p>
+          <p style={styles.answerText}>{endedData.answer}</p>
+        </div>
+        <button onClick={onContinue} style={styles.continueButton}>
+          Continue
+        </button>
+      </div>
+    )
+  }
 
   if (phase === 'REVEALED') {
     return (
@@ -275,6 +304,14 @@ const styles = {
   failedText: {
     color: '#666',
     fontSize: '0.9rem'
+  },
+  continueButton: {
+    padding: '1rem 3rem',
+    background: '#4361ee',
+    color: '#fff',
+    fontSize: '1.3rem',
+    fontWeight: 'bold',
+    borderRadius: '8px'
   }
 }
 

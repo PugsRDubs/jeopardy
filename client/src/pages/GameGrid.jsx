@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import QuestionReveal from './QuestionReveal'
 
+const NUM_COLS = 6
+const NUM_ROWS = 5
+
 function GameGrid({ socket, gameCode, board, onGameOver, onBack }) {
   const [questionStates, setQuestionStates] = useState(
-    board.categories.map(() => new Array(5).fill(false))
+    board.categories.map(() => new Array(NUM_ROWS).fill(false))
   )
   const [currentQuestion, setCurrentQuestion] = useState(null)
   const [phase, setPhase] = useState('GRID')
@@ -49,7 +52,12 @@ function GameGrid({ socket, gameCode, board, onGameOver, onBack }) {
     setPhase('GRID')
   }, [])
 
-  if (phase === 'REVEALED' || phase === 'BUZZING' || phase === 'ANSWERING') {
+  const handleContinue = useCallback(() => {
+    socket.emit('game:continue', { code: gameCode })
+    setPhase('GRID')
+  }, [socket, gameCode])
+
+  if (phase === 'REVEALED' || phase === 'BUZZING' || phase === 'ANSWERING' || phase === 'QUESTION_ENDED') {
     return (
       <QuestionReveal
         socket={socket}
@@ -58,6 +66,7 @@ function GameGrid({ socket, gameCode, board, onGameOver, onBack }) {
         phase={phase}
         onBack={handleBack}
         onAnswerComplete={handleAnswerComplete}
+        onContinue={handleContinue}
       />
     )
   }
@@ -69,6 +78,11 @@ function GameGrid({ socket, gameCode, board, onGameOver, onBack }) {
         <button onClick={onBack} style={styles.quitButton}>Quit Game</button>
       </div>
       <table style={styles.grid}>
+        <colgroup>
+          {board.categories.map((_, i) => (
+            <col key={i} style={{ width: `${100 / NUM_COLS}%` }} />
+          ))}
+        </colgroup>
         <thead>
           <tr>
             {board.categories.map((cat, i) => (
@@ -77,9 +91,9 @@ function GameGrid({ socket, gameCode, board, onGameOver, onBack }) {
           </tr>
         </thead>
         <tbody>
-          {[0, 1, 2, 3, 4].map(row => (
+          {Array.from({ length: NUM_ROWS }, (_, row) => (
             <tr key={row}>
-              {[0, 1, 2, 3, 4].map(col => {
+              {Array.from({ length: NUM_COLS }, (_, col) => {
                 const completed = questionStates[col]?.[row]
                 return (
                   <td
@@ -134,15 +148,19 @@ const styles = {
   grid: {
     width: '100%',
     flex: 1,
-    borderCollapse: 'collapse'
+    borderCollapse: 'collapse',
+    tableLayout: 'fixed'
   },
   categoryHeader: {
-    padding: '1rem',
+    padding: '1rem 0.5rem',
     background: '#4361ee',
     color: '#fff',
     fontSize: '1.1rem',
     fontWeight: 'bold',
-    textAlign: 'center'
+    textAlign: 'center',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap'
   },
   cell: {
     textAlign: 'center',
@@ -150,7 +168,8 @@ const styles = {
     fontWeight: 'bold',
     cursor: 'pointer',
     transition: 'all 0.2s',
-    border: '2px solid #2a2a4a'
+    border: '2px solid #2a2a4a',
+    height: '80px'
   },
   cellActive: {
     background: '#2a2a4a',
