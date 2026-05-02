@@ -7,9 +7,8 @@ import HostSelect from './pages/HostSelect'
 import Lobby from './pages/Lobby'
 import GameGrid from './pages/GameGrid'
 import GameOver from './pages/GameOver'
-import CreateBoard from './pages/CreateBoard'
-import { decodeBoard } from './utils/shareBoard'
-import { importBoard } from './utils/boardStorage'
+import { decodeBoard, encodeBoard } from './utils/shareBoard'
+import { importBoard, createBoard, getBoards, updateBoard } from './utils/boardStorage'
 
 const socket = io({
   transports: ['polling', 'websocket'],
@@ -45,19 +44,19 @@ function App() {
     if (share) {
       importProcessed.current = true
       decodeBoard(share)
-        .then((board) => {
-          importBoard(board)
-          setImportMsg(`Imported "${board.name}"!`)
-          params.delete('share')
-          const cleanUrl = params.toString()
-            ? `${window.location.pathname}?${params}`
-            : window.location.pathname
-          window.history.replaceState({}, '', cleanUrl)
-          setPage('create-board')
-        })
+          .then((board) => {
+            importBoard(board)
+            sessionStorage.setItem('importMsg', `Imported "${board.name}"!`)
+            params.delete('share')
+            const cleanUrl = params.toString()
+              ? `${window.location.pathname}?${params}`
+              : window.location.pathname
+            window.history.replaceState({}, '', cleanUrl)
+            setPage('host-select')
+          })
         .catch(() => {
-          setImportMsg('Failed to import board. Invalid link.')
-          setPage('create-board')
+          sessionStorage.setItem('importMsg', 'Failed to import board. Invalid link.')
+          setPage('host-select')
         })
     }
   }, [])
@@ -113,12 +112,11 @@ function App() {
 
   return (
     <>
-      {page === 'home' && (
+       {page === 'home' && (
         <Home
           onJoin={handleCodeSubmit}
           codeError={codeError}
           onHost={() => setPage('host-select')}
-          onCreate={() => setPage('create-board')}
         />
       )}
       {page === 'join' && (
@@ -151,16 +149,23 @@ function App() {
           }}
         />
       )}
-      {page === 'host-select' && (
+       {page === 'host-select' && (
         <HostSelect
           socket={socket}
           creating={creating}
           onBack={goHome}
-          onCreateNew={() => setPage('create-board')}
+          onEditBoard={(board) => {
+            const boardToEdit = board || createBoard('New Board')
+            sessionStorage.setItem('boardToEdit', JSON.stringify(boardToEdit))
+            setPage('create-board')
+          }}
           onSelectBoard={(board) => {
             console.log('App: onSelectBoard called', board.name)
             setCreating(true)
             setCurrentBoard(board)
+            // Update board's updatedAt so it sorts to top
+            board.updatedAt = Date.now()
+            updateBoard(board)
             socket.emit('game:create', { board })
           }}
         />
@@ -195,16 +200,10 @@ function App() {
           onBack={goHome}
         />
       )}
-      {page === 'game-over' && (
+       {page === 'game-over' && (
         <GameOver
           leaderboard={leaderboard || []}
           onBack={goHome}
-        />
-      )}
-      {page === 'create-board' && (
-        <CreateBoard
-          onBack={goHome}
-          importMsg={importMsg}
         />
       )}
     </>

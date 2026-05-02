@@ -5,7 +5,8 @@ const STORAGE_KEY = 'trivia-boards'
 function getBoards() {
   try {
     const data = localStorage.getItem(STORAGE_KEY)
-    return data ? JSON.parse(data) : []
+    const boards = data ? JSON.parse(data) : []
+    return boards.sort((a, b) => b.updatedAt - a.updatedAt)
   } catch {
     return []
   }
@@ -27,7 +28,7 @@ function createBoard(name) {
       Array.from({ length: 5 }, () => ({ question: '', answer: '' }))
     )
   }
-  boards.push(board)
+  boards.unshift(board)
   saveBoards(boards)
   return board
 }
@@ -51,7 +52,6 @@ function renameBoard(id, newName) {
   const board = boards.find(b => b.id === id)
   if (board) {
     board.name = newName
-    board.updatedAt = Date.now()
     saveBoards(boards)
   }
 }
@@ -70,7 +70,7 @@ function importBoard(boardData) {
     categories: boardData.categories,
     questions: boardData.questions
   }
-  boards.push(board)
+  boards.unshift(board)
   saveBoards(boards)
   return board
 }

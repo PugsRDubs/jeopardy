@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-function Home({ onJoin, codeError, onHost, onCreate }) {
+function Home({ onJoin, codeError, onHost }) {
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
 
@@ -19,41 +19,32 @@ function Home({ onJoin, codeError, onHost, onCreate }) {
 
       <div style={styles.joinSection}>
         <label style={styles.label}>Enter Game Code</label>
-        <div style={styles.joinRow}>
-          <input
-            type="text"
-            value={code}
-            onChange={(e) => { setCode(e.target.value.toUpperCase()); setError('') }}
-            placeholder="ABC123"
-            style={styles.codeInput}
-            maxLength={6}
-            onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-          />
-          <button
-            onClick={handleJoin}
-            style={{
-              ...styles.joinButton,
-              opacity: code.trim().length > 0 ? 1 : 0.5
-            }}
-            disabled={code.trim().length === 0}
-            aria-label="Join game"
-          >
-            Join Game
-          </button>
-        </div>
+        <input
+          type="text"
+          value={code}
+          onChange={(e) => { setCode(e.target.value.toUpperCase()); setError('') }}
+          placeholder="ABC123"
+          style={styles.codeInput}
+          maxLength={6}
+          onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
+        />
+        <button
+          onClick={handleJoin}
+          style={{
+            ...styles.joinButton,
+            opacity: code.trim().length > 0 ? 1 : 0.5
+          }}
+          disabled={code.trim().length === 0}
+          aria-label="Join game"
+        >
+          Join Game
+        </button>
         {displayError && <p style={styles.error}>{displayError}</p>}
       </div>
 
-      <div style={styles.divider} />
-
-      <div style={styles.optionsRow}>
-        <button onClick={onHost} style={styles.optionButton} aria-label="Host a game">
-          Host a Game
-        </button>
-        <button onClick={onCreate} style={styles.optionButton} aria-label="Create board">
-          Create Board
-        </button>
-      </div>
+      <button onClick={onHost} style={styles.optionButton} aria-label="Host a game">
+        Host a Game
+      </button>
     </div>
   )
 }
@@ -77,18 +68,11 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '1rem',
-    marginBottom: '2rem'
+    gap: '1rem'
   },
   label: {
     fontSize: '1.2rem',
     color: '#aaa'
-  },
-  joinRow: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1rem',
-    alignItems: 'center'
   },
   codeInput: {
     padding: '1rem 1.5rem',
@@ -116,16 +100,6 @@ const styles = {
     color: '#ff6b6b',
     fontSize: '0.95rem'
   },
-  divider: {
-    width: '60%',
-    height: '1px',
-    background: '#4a4a6a',
-    margin: '2rem 0'
-  },
-  optionsRow: {
-    display: 'flex',
-    gap: '2rem'
-  },
   optionButton: {
     padding: '1rem 2rem',
     fontSize: '1.2rem',
@@ -133,6 +107,8 @@ const styles = {
     color: '#aaa',
     border: '2px solid #4a4a6a',
     borderRadius: '8px',
+    width: '280px',
+    marginTop: '3.5rem',
     transition: 'all 0.2s'
   }
 }
