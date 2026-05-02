@@ -1,0 +1,15 @@
+[Unit]
+Description=Not Jeopardy Game Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/jeopardy/server
+ExecStart=/usr/bin/node index.js
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3001
+
+[Install]
+WantedBy=multi-user.target
