@@ -368,6 +368,7 @@ const PORT = process.env.PORT || 3001
 const distPath = path.join(process.cwd(), '..', 'client', 'dist')
 app.use(express.static(distPath))
 app.get('*', (req, res) => {
+  if (req.url.startsWith('/socket.io')) return
   const indexPath = path.join(distPath, 'index.html')
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath)
