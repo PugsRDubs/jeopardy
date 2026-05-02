@@ -13,7 +13,8 @@ const httpServer = createServer(app)
 const io = new Server(httpServer, {
   cors: { origin: '*' },
   pingInterval: 10000,
-  pingTimeout: 5000
+  pingTimeout: 5000,
+  transports: ['websocket', 'polling']
 })
 
 const games = new Map()
