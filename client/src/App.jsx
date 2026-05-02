@@ -62,6 +62,7 @@ function App() {
   }, [])
 
   const goHome = () => {
+    console.log('App: goHome called, current page:', page)
     setPage('home')
     setPlayerData(null)
     setGameState(null)
@@ -96,6 +97,7 @@ function App() {
 
   return (
     <>
+      {console.log('App: current page =', page, 'socket connected =', socket.connected)}
       {page === 'home' && (
         <Home
           onJoin={handleCodeSubmit}
