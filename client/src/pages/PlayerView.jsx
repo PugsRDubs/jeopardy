@@ -82,6 +82,9 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
   if (phase === 'GRID' || phase === 'REVEALED' || phase === 'QUESTION_ENDED') {
     return (
       <div style={styles.container}>
+        <div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden' }}>
+          {phase}
+        </div>
         <div style={styles.scoreDisplay}>
           <span style={styles.scoreLabel}>Score</span>
           <span style={styles.scoreValue}><AnimatedCounter value={score} /></span>
@@ -95,6 +98,9 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
     if (canBuzz) {
       return (
         <div style={styles.container}>
+          <div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden' }}>
+            Buzzing open
+          </div>
           <div style={styles.scoreDisplay}>
             <span style={styles.scoreLabel}>Score</span>
             <span style={styles.scoreValue}><AnimatedCounter value={score} /></span>
@@ -119,6 +125,9 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
   if (phase === 'ANSWERING') {
     return (
       <div style={styles.container}>
+        <div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden' }}>
+          {wasChosen ? 'You are up' : 'Someone is answering'}
+        </div>
         <div style={styles.scoreDisplay}>
           <span style={styles.scoreLabel}>Score</span>
           <span style={styles.scoreValue}><AnimatedCounter value={score} /></span>

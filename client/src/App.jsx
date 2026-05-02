@@ -28,6 +28,7 @@ function App() {
   const [codeValidated, setCodeValidated] = useState(false)
   const [codeError, setCodeError] = useState('')
   const [importMsg, setImportMsg] = useState('')
+  const [creating, setCreating] = useState(false)
   const importProcessed = useRef(false)
   const gameStartSound = useRef(null)
   const buttonSound = useRef(null)
@@ -62,12 +63,26 @@ function App() {
   }, [])
 
   useEffect(() => {
-    socket.on('game:created', ({ code }) => {
+    const handler = ({ code }) => {
       console.log('App: game:created received', code)
+      setCreating(false)
       setGameCode(code)
       setPage('lobby')
-    })
-    return () => socket.off('game:created')
+    }
+    socket.on('game:created', handler)
+    return () => socket.off('game:created', handler)
+  }, [])
+
+  useEffect(() => {
+    const handler = () => {
+      setCodeError('You have been kicked from the game')
+      setPage('home')
+      setPlayerData(null)
+      setGameCode(null)
+      setCodeValidated(false)
+    }
+    socket.on('game:kicked', handler)
+    return () => socket.off('game:kicked', handler)
   }, [])
 
   const goHome = () => {
@@ -79,9 +94,10 @@ function App() {
     setLeaderboard(null)
     setCodeValidated(false)
     setCodeError('')
+    setCreating(false)
   }
 
-  const handleCodeSubmit = async (code) => {
+  const handleCodeSubmit = (code) => {
     setCodeValidated(false)
     setCodeError('')
     socket.emit('game:check', { code }, (response) => {
@@ -94,14 +110,6 @@ function App() {
       setPage('join')
     })
   }
-
-  socket.on('game:kicked', () => {
-    setCodeError('You have been kicked from the game')
-    setPage('home')
-    setPlayerData(null)
-    setGameCode(null)
-    setCodeValidated(false)
-  })
 
   return (
     <>
@@ -146,10 +154,12 @@ function App() {
       {page === 'host-select' && (
         <HostSelect
           socket={socket}
+          creating={creating}
           onBack={goHome}
           onCreateNew={() => setPage('create-board')}
           onSelectBoard={(board) => {
             console.log('App: onSelectBoard called', board.name)
+            setCreating(true)
             setCurrentBoard(board)
             socket.emit('game:create', { board })
           }}

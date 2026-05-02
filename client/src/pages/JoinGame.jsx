@@ -3,10 +3,13 @@ import { useState } from 'react'
 function JoinGame({ code, socket, onConnected, onBack }) {
   const [name, setName] = useState('')
   const [error, setError] = useState('')
+  const [joining, setJoining] = useState(false)
 
   const handleJoin = () => {
-    if (name.trim().length === 0) return
+    if (name.trim().length === 0 || joining) return
+    setJoining(true)
     socket.emit('game:join', { code, name: name.trim() }, (response) => {
+      setJoining(false)
       if (response.error) {
         setError(response.error)
       } else {
@@ -36,11 +39,12 @@ function JoinGame({ code, socket, onConnected, onBack }) {
           onClick={handleJoin}
           style={{
             ...styles.joinButton,
-            opacity: name.trim().length > 0 ? 1 : 0.5
+            opacity: name.trim().length > 0 && !joining ? 1 : 0.5
           }}
-          disabled={name.trim().length === 0}
+          disabled={name.trim().length === 0 || joining}
+          aria-label="Join game"
         >
-          Join Game
+          {joining ? 'Joining...' : 'Join Game'}
         </button>
       </div>
     </div>

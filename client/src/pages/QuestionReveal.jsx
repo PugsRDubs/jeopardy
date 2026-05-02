@@ -162,7 +162,7 @@ function QuestionReveal({ socket, gameCode, question, phase, onBack, onAnswerCom
         <div style={styles.card}>
           <span style={styles.category}>{question.category}</span>
           <span style={styles.value}>{question.value} points</span>
-          <h2 style={styles.questionText}>{firstBuzz ? firstBuzz.question : question.question}</h2>
+          <h2 style={styles.questionText}>{question.question}</h2>
         </div>
         {firstBuzz && (
           <div style={styles.buzzPlayer}>

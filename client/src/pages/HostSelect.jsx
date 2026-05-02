@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { getBoards, deleteBoard, renameBoard } from '../utils/boardStorage'
 import { encodeBoard, getShareUrl } from '../utils/shareBoard'
 
-function HostSelect({ socket, onBack, onSelectBoard, onCreateNew }) {
+function HostSelect({ socket, creating, onBack, onSelectBoard, onCreateNew }) {
   const [boards, setBoards] = useState(getBoards())
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
@@ -89,7 +89,9 @@ function HostSelect({ socket, onBack, onSelectBoard, onCreateNew }) {
               <button onClick={() => startRename(board)} style={styles.actionBtn}>Rename</button>
               <button onClick={() => handleDelete(board.id)} style={{ ...styles.actionBtn, color: '#ff6b6b' }}>Delete</button>
               <button onClick={() => handleShare(board)} style={{ ...styles.actionBtn, color: '#2ecc71' }}>Share</button>
-              <button onClick={() => handleSelect(board)} style={{ ...styles.actionBtn, color: '#4361ee' }}>Host</button>
+               <button onClick={() => handleSelect(board)} style={{ ...styles.actionBtn, color: '#4361ee' }} disabled={creating} aria-label={`Host game with ${board.name}`}>
+                 {creating ? 'Creating...' : 'Host'}
+                </button>
             </div>
           </div>
         ))}

@@ -36,6 +36,7 @@ function Home({ onJoin, codeError, onHost, onCreate }) {
               opacity: code.trim().length > 0 ? 1 : 0.5
             }}
             disabled={code.trim().length === 0}
+            aria-label="Join game"
           >
             Join Game
           </button>
@@ -46,10 +47,10 @@ function Home({ onJoin, codeError, onHost, onCreate }) {
       <div style={styles.divider} />
 
       <div style={styles.optionsRow}>
-        <button onClick={onHost} style={styles.optionButton}>
+        <button onClick={onHost} style={styles.optionButton} aria-label="Host a game">
           Host a Game
         </button>
-        <button onClick={onCreate} style={styles.optionButton}>
+        <button onClick={onCreate} style={styles.optionButton} aria-label="Create board">
           Create Board
         </button>
       </div>

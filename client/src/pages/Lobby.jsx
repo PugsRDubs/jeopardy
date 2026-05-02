@@ -65,7 +65,7 @@ function Lobby({ socket, gameCode, onBack, onKick, onStart }) {
               <Avatar name={p.name} size={36} />
               <span style={styles.playerName}>{p.name}</span>
             </div>
-            <button onClick={() => onKick(p.id)} style={styles.kickButton}>Kick</button>
+            <button onClick={() => onKick(p.id)} style={styles.kickButton} aria-label={`Kick ${p.name}`}>Kick</button>
           </div>
         ))}
       </div>
@@ -76,6 +76,7 @@ function Lobby({ socket, gameCode, onBack, onKick, onStart }) {
           ...styles.startButton,
           opacity: players.length >= 2 && countdown === null ? 1 : 0.4
         }}
+        aria-label="Start game"
       >
         Start Game
       </button>

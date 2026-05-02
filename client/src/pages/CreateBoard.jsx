@@ -10,15 +10,42 @@ function CreateBoard({ onBack, importMsg }) {
   const [shareUrl, setShareUrl] = useState('')
   const [copied, setCopied] = useState(false)
   const [dismissedMsg, setDismissedMsg] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showRenameModal, setShowRenameModal] = useState(false)
+  const [newBoardName, setNewBoardName] = useState('')
+  const [renameBoardId, setRenameBoardId] = useState(null)
   const timerRef = useRef(null)
 
   const handleCreate = () => {
-    const name = prompt('Board name:')
-    if (!name?.trim()) return
-    const board = createBoard(name.trim())
+    setNewBoardName('')
+    setShowCreateModal(true)
+  }
+
+  const confirmCreate = () => {
+    const name = newBoardName.trim()
+    if (!name) return
+    const board = createBoard(name)
     setBoards(getBoards())
     setCurrentBoard(board)
     setEditMode(true)
+    setShowCreateModal(false)
+  }
+
+  const handleRename = (id) => {
+    const board = getBoard(id)
+    if (!board) return
+    setRenameBoardId(id)
+    setNewBoardName(board.name)
+    setShowRenameModal(true)
+  }
+
+  const confirmRename = () => {
+    const name = newBoardName.trim()
+    if (!name || !renameBoardId) return
+    renameBoard(renameBoardId, name)
+    setBoards(getBoards())
+    setShowRenameModal(false)
+    setRenameBoardId(null)
   }
 
   const handleEdit = (board) => {
@@ -30,14 +57,6 @@ function CreateBoard({ onBack, importMsg }) {
     if (!confirm('Delete this board?')) return
     deleteBoard(id)
     setBoards(getBoards())
-  }
-
-  const handleRename = (id) => {
-    const name = prompt('New name:')
-    if (name?.trim()) {
-      renameBoard(id, name.trim())
-      setBoards(getBoards())
-    }
   }
 
   const handleShare = async (board) => {
@@ -168,11 +187,11 @@ function CreateBoard({ onBack, importMsg }) {
 
   return (
     <div style={styles.container}>
-      <button onClick={onBack} style={styles.backButton}>&larr; Back</button>
+      <button onClick={onBack} style={styles.backButton} aria-label="Go back">&larr; Back</button>
       {importMsg && !dismissedMsg && (
         <div style={styles.importBanner}>
           <span>{importMsg}</span>
-          <button onClick={() => setDismissedMsg(true)} style={styles.dismissBtn}>×</button>
+          <button onClick={() => setDismissedMsg(true)} style={styles.dismissBtn} aria-label="Dismiss message">×</button>
         </div>
       )}
       <h1 style={styles.title}>Create Board</h1>
@@ -187,15 +206,15 @@ function CreateBoard({ onBack, importMsg }) {
               {new Date(board.updatedAt).toLocaleDateString()}
             </span>
             <div style={styles.actions}>
-              <button onClick={() => handleRename(board.id)} style={styles.actionBtn}>Rename</button>
-              <button onClick={() => handleDelete(board.id)} style={{ ...styles.actionBtn, color: '#ff6b6b' }}>Delete</button>
-              <button onClick={() => handleShare(board)} style={{ ...styles.actionBtn, color: '#2ecc71' }}>Share</button>
-              <button onClick={() => handleEdit(board)} style={{ ...styles.actionBtn, color: '#4361ee' }}>Edit</button>
+              <button onClick={() => handleRename(board.id)} style={styles.actionBtn} aria-label={`Rename ${board.name}`}>Rename</button>
+              <button onClick={() => handleDelete(board.id)} style={{ ...styles.actionBtn, color: '#ff6b6b' }} aria-label={`Delete ${board.name}`}>Delete</button>
+              <button onClick={() => handleShare(board)} style={{ ...styles.actionBtn, color: '#2ecc71' }} aria-label={`Share ${board.name}`}>Share</button>
+              <button onClick={() => handleEdit(board)} style={{ ...styles.actionBtn, color: '#4361ee' }} aria-label={`Edit ${board.name}`}>Edit</button>
             </div>
           </div>
         ))}
       </div>
-      <button onClick={handleCreate} style={styles.createButton}>
+      <button onClick={handleCreate} style={styles.createButton} aria-label="Create new board">
         Create New Board
       </button>
       {sharingBoard && (
@@ -204,12 +223,52 @@ function CreateBoard({ onBack, importMsg }) {
             <h2 style={styles.modalTitle}>Share "{sharingBoard.name}"</h2>
             <p style={styles.modalDesc}>Anyone with this link can import this board:</p>
             <div style={styles.urlBox}>
-              <input readOnly value={shareUrl} style={styles.urlInput} />
+              <input readOnly value={shareUrl} style={styles.urlInput} aria-label="Share URL" />
               <button onClick={copyShareUrl} style={styles.copyButton}>
                 {copied ? 'Copied!' : 'Copy'}
               </button>
             </div>
             <button onClick={closeShareModal} style={styles.modalClose}>Close</button>
+          </div>
+        </div>
+      )}
+      {showCreateModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowCreateModal(false)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.modalTitle}>Create New Board</h2>
+            <input
+              value={newBoardName}
+              onChange={(e) => setNewBoardName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && confirmCreate()}
+              placeholder="Board name"
+              style={styles.modalInput}
+              autoFocus
+              aria-label="Board name"
+            />
+            <div style={styles.modalActions}>
+              <button onClick={() => setShowCreateModal(false)} style={styles.modalCancel}>Cancel</button>
+              <button onClick={confirmCreate} style={styles.modalConfirm} disabled={!newBoardName.trim()}>Create</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showRenameModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowRenameModal(false)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.modalTitle}>Rename Board</h2>
+            <input
+              value={newBoardName}
+              onChange={(e) => setNewBoardName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && confirmRename()}
+              placeholder="New name"
+              style={styles.modalInput}
+              autoFocus
+              aria-label="New board name"
+            />
+            <div style={styles.modalActions}>
+              <button onClick={() => setShowRenameModal(false)} style={styles.modalCancel}>Cancel</button>
+              <button onClick={confirmRename} style={styles.modalConfirm} disabled={!newBoardName.trim()}>Save</button>
+            </div>
           </div>
         </div>
       )}
@@ -382,13 +441,47 @@ const styles = {
     borderRadius: '6px',
     whiteSpace: 'nowrap'
   },
-  modalClose: {
+   modalClose: {
     padding: '0.7rem 2rem',
     background: '#4361ee',
     color: '#fff',
     fontWeight: 'bold',
     fontSize: '1rem',
     borderRadius: '8px'
+  },
+  modalInput: {
+    width: '100%',
+    padding: '0.7rem 1rem',
+    fontSize: '1rem',
+    background: '#1a1a2e',
+    color: '#fff',
+    border: '1px solid #4361ee',
+    borderRadius: '6px',
+    outline: 'none',
+    boxSizing: 'border-box'
+  },
+  modalActions: {
+    display: 'flex',
+    gap: '0.5rem',
+    justifyContent: 'flex-end',
+    width: '100%'
+  },
+  modalCancel: {
+    padding: '0.7rem 1.5rem',
+    background: 'transparent',
+    color: '#aaa',
+    fontSize: '1rem',
+    border: '1px solid #4a4a6a',
+    borderRadius: '6px'
+  },
+  modalConfirm: {
+    padding: '0.7rem 1.5rem',
+    background: '#4361ee',
+    color: '#fff',
+    fontSize: '1rem',
+    fontWeight: 'bold',
+    borderRadius: '6px',
+    border: 'none'
   },
   editor: {
     display: 'flex',

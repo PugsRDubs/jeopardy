@@ -11,11 +11,42 @@ const generateCode = customAlphabet(ALPHABET, 6)
 const app = express()
 const httpServer = createServer(app)
 const io = new Server(httpServer, {
-  cors: { origin: '*' },
+  cors: {
+    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*',
+    credentials: true
+  },
   pingInterval: 3000,
   pingTimeout: 5000,
   transports: ['websocket', 'polling']
 })
+
+function validateBoard(board) {
+  if (!board || typeof board !== 'object') return false
+  if (!Array.isArray(board.categories) || board.categories.length !== 6) return false
+  if (!Array.isArray(board.questions) || board.questions.length !== 6) return false
+  for (let i = 0; i < 6; i++) {
+    if (typeof board.categories[i] !== 'string' || board.categories[i].trim() === '') return false
+    if (!Array.isArray(board.questions[i]) || board.questions[i].length !== 5) return false
+    for (let j = 0; j < 5; j++) {
+      const q = board.questions[i][j]
+      if (!q || typeof q !== 'object') return false
+      if (typeof q.question !== 'string' || q.question.trim() === '') return false
+      if (typeof q.answer !== 'string' || q.answer.trim() === '') return false
+    }
+  }
+  return true
+}
+
+function validateName(name) {
+  if (typeof name !== 'string') return false
+  const trimmed = name.trim()
+  return trimmed.length >= 1 && trimmed.length <= 20
+}
+
+function validateIndices(catIdx, valIdx) {
+  return Number.isInteger(catIdx) && catIdx >= 0 && catIdx < 6 &&
+         Number.isInteger(valIdx) && valIdx >= 0 && valIdx < 5
+}
 
 const games = new Map()
 
@@ -102,30 +133,101 @@ function handleQuestionEnd(game) {
 
 io.on('connection', (socket) => {
   socket.on('game:check', ({ code }, callback) => {
-    const game = getGame(code)
-    callback({ exists: !!game, phase: game ? game.phase : null })
+    try {
+      const game = getGame(code)
+      callback({ exists: !!game, phase: game ? game.phase : null })
+    } catch (err) {
+      console.error('Error in game:check:', err)
+      callback({ error: 'Internal server error' })
+    }
   })
 
   socket.on('game:create', ({ board }) => {
-    const code = createGame(socket.id, board)
-    socket.join(code)
-    socket.emit('game:created', { code })
+    try {
+      if (!validateBoard(board)) {
+        socket.emit('game:error', { message: 'Invalid board data' })
+        return
+      }
+      const code = createGame(socket.id, board)
+      socket.join(code)
+      socket.emit('game:created', { code })
+    } catch (err) {
+      console.error('Error in game:create:', err)
+      socket.emit('game:error', { message: 'Internal server error' })
+    }
   })
 
   socket.on('game:join', ({ code, name }, callback) => {
-    const game = getGame(code)
-    if (!game) {
-      callback({ error: 'Game not found' })
-      return
-    }
-    const existingPlayer = game.players.find(p => p.name === name)
-    if (existingPlayer) {
-      if (!existingPlayer.disconnected) {
-        callback({ error: 'Name already taken' })
+    try {
+      if (!validateName(name)) {
+        callback({ error: 'Invalid name' })
         return
       }
-      existingPlayer.id = socket.id
-      existingPlayer.disconnected = false
+      const game = getGame(code)
+      if (!game) {
+        callback({ error: 'Game not found' })
+        return
+      }
+      const existingPlayer = game.players.find(p => p.name === name)
+      if (existingPlayer) {
+        if (!existingPlayer.disconnected) {
+          callback({ error: 'Name already taken' })
+          return
+        }
+        existingPlayer.id = socket.id
+        existingPlayer.disconnected = false
+        socket.join(game.code)
+        if (game.phase !== 'LOBBY') {
+          const playerList = game.players.map(p => ({ id: p.id, name: p.name, score: p.score, disconnected: p.disconnected }))
+          io.to(game.hostId).emit('game:player-list', playerList)
+        }
+        const leaderboard = game.phase === 'GAME_OVER' ? buildLeaderboard(game) : null
+        callback({
+          success: true,
+          player: existingPlayer,
+          reconnected: true,
+          gameState: {
+            phase: game.phase,
+            score: existingPlayer.score,
+            leaderboard
+          }
+        })
+        return
+      }
+      if (game.phase !== 'LOBBY') {
+        callback({ error: 'Game already in progress' })
+        return
+      }
+      const player = { id: socket.id, name: name.trim(), score: 0, disconnected: false }
+      game.players.push(player)
+      socket.join(game.code)
+      const playerList = game.players.map(p => ({ id: p.id, name: p.name, score: p.score, disconnected: p.disconnected }))
+      io.to(game.hostId).emit('game:player-list', playerList)
+      callback({ success: true, player })
+    } catch (err) {
+      console.error('Error in game:join:', err)
+      callback({ error: 'Internal server error' })
+    }
+  })
+
+  socket.on('game:reconnect', ({ code, name }, callback) => {
+    try {
+      if (!validateName(name)) {
+        callback({ error: 'Invalid name' })
+        return
+      }
+      const game = getGame(code)
+      if (!game) {
+        callback({ error: 'Game not found' })
+        return
+      }
+      const player = game.players.find(p => p.name === name)
+      if (!player) {
+        callback({ error: 'Player not found in game' })
+        return
+      }
+      player.id = socket.id
+      player.disconnected = false
       socket.join(game.code)
       if (game.phase !== 'LOBBY') {
         const playerList = game.players.map(p => ({ id: p.id, name: p.name, score: p.score, disconnected: p.disconnected }))
@@ -134,232 +236,248 @@ io.on('connection', (socket) => {
       const leaderboard = game.phase === 'GAME_OVER' ? buildLeaderboard(game) : null
       callback({
         success: true,
-        player: existingPlayer,
-        reconnected: true,
+        player,
         gameState: {
           phase: game.phase,
-          score: existingPlayer.score,
+          score: player.score,
           leaderboard
         }
       })
-      return
+    } catch (err) {
+      console.error('Error in game:reconnect:', err)
+      callback({ error: 'Internal server error' })
     }
-    if (game.phase !== 'LOBBY') {
-      callback({ error: 'Game already in progress' })
-      return
-    }
-    const player = { id: socket.id, name, score: 0, disconnected: false }
-    game.players.push(player)
-    socket.join(game.code)
-    const playerList = game.players.map(p => ({ id: p.id, name: p.name, score: p.score, disconnected: p.disconnected }))
-    io.to(game.hostId).emit('game:player-list', playerList)
-    callback({ success: true, player })
-  })
-
-  socket.on('game:reconnect', ({ code, name }, callback) => {
-    const game = getGame(code)
-    if (!game) {
-      callback({ error: 'Game not found' })
-      return
-    }
-    const player = game.players.find(p => p.name === name)
-    if (!player) {
-      callback({ error: 'Player not found in game' })
-      return
-    }
-    player.id = socket.id
-    player.disconnected = false
-    socket.join(game.code)
-    if (game.phase !== 'LOBBY') {
-      const playerList = game.players.map(p => ({ id: p.id, name: p.name, score: p.score, disconnected: p.disconnected }))
-      io.to(game.hostId).emit('game:player-list', playerList)
-    }
-    const leaderboard = game.phase === 'GAME_OVER' ? buildLeaderboard(game) : null
-    callback({
-      success: true,
-      player,
-      gameState: {
-        phase: game.phase,
-        score: player.score,
-        leaderboard
-      }
-    })
   })
 
   socket.on('game:kick', ({ code, playerId }) => {
-    const game = getGame(code)
-    if (!game || game.hostId !== socket.id) return
-    if (game.phase !== 'LOBBY') return
-    const playerIdx = game.players.findIndex(p => p.id === playerId)
-    if (playerIdx !== -1) {
-      const kickedPlayer = game.players[playerIdx]
-      io.to(kickedPlayer.id).emit('game:kicked')
-      game.players.splice(playerIdx, 1)
-      const playerList = game.players.map(p => ({ id: p.id, name: p.name, score: p.score, disconnected: p.disconnected }))
-      io.to(game.code).emit('game:player-list', playerList)
+    try {
+      const game = getGame(code)
+      if (!game || game.hostId !== socket.id) return
+      if (game.phase !== 'LOBBY') return
+      const playerIdx = game.players.findIndex(p => p.id === playerId)
+      if (playerIdx !== -1) {
+        const kickedPlayer = game.players[playerIdx]
+        io.to(kickedPlayer.id).emit('game:kicked')
+        game.players.splice(playerIdx, 1)
+        const playerList = game.players.map(p => ({ id: p.id, name: p.name, score: p.score, disconnected: p.disconnected }))
+        io.to(game.code).emit('game:player-list', playerList)
+      }
+    } catch (err) {
+      console.error('Error in game:kick:', err)
     }
   })
 
   socket.on('game:started', ({ code }) => {
-    const game = getGame(code)
-    if (!game || game.hostId !== socket.id) return
-    if (game.players.length < 2) {
-      socket.emit('game:error', { message: 'Need at least 2 players' })
-      return
+    try {
+      const game = getGame(code)
+      if (!game || game.hostId !== socket.id) return
+      if (game.players.length < 2) {
+        socket.emit('game:error', { message: 'Need at least 2 players' })
+        return
+      }
+      game.phase = 'GRID'
+      broadcastPhase(game, 'GRID')
+    } catch (err) {
+      console.error('Error in game:started:', err)
     }
-    game.phase = 'GRID'
-    broadcastPhase(game, 'GRID')
   })
 
   socket.on('game:select-question', ({ code, catIdx, valIdx }) => {
-    const game = getGame(code)
-    if (!game || game.hostId !== socket.id) return
-    if (game.phase !== 'GRID') return
-    if (game.questionStates[catIdx][valIdx]) return
-    game.phase = 'REVEALED'
-    game.currentQuestion = { catIdx, valIdx }
-    game.buzzedPlayers = []
-    game.failedPlayers = []
-    game.firstBuzz = null
-    io.to(game.hostId).emit('game:question-reveal', {
-      category: game.board.categories[catIdx],
-      value: (valIdx + 1) * 100,
-      question: game.board.questions[catIdx][valIdx].question,
-      answer: game.board.questions[catIdx][valIdx].answer,
-      catIdx,
-      valIdx
-    })
-    broadcastPhase(game, 'REVEALED')
+    try {
+      const game = getGame(code)
+      if (!game || game.hostId !== socket.id) return
+      if (game.phase !== 'GRID') return
+      if (!validateIndices(catIdx, valIdx)) return
+      if (game.questionStates[catIdx][valIdx]) return
+      game.phase = 'REVEALED'
+      game.currentQuestion = { catIdx, valIdx }
+      game.buzzedPlayers = []
+      game.failedPlayers = []
+      game.firstBuzz = null
+      io.to(game.hostId).emit('game:question-reveal', {
+        category: game.board.categories[catIdx],
+        value: (valIdx + 1) * 100,
+        question: game.board.questions[catIdx][valIdx].question,
+        answer: game.board.questions[catIdx][valIdx].answer,
+        catIdx,
+        valIdx
+      })
+      broadcastPhase(game, 'REVEALED')
+    } catch (err) {
+      console.error('Error in game:select-question:', err)
+    }
   })
 
   socket.on('game:start-buzzing', ({ code }) => {
-    const game = getGame(code)
-    if (!game || game.hostId !== socket.id) return
-    if (game.phase !== 'REVEALED') return
-    game.phase = 'BUZZING'
-    broadcastPhase(game, 'BUZZING', { failedPlayers: game.failedPlayers })
+    try {
+      const game = getGame(code)
+      if (!game || game.hostId !== socket.id) return
+      if (game.phase !== 'REVEALED') return
+      game.phase = 'BUZZING'
+      broadcastPhase(game, 'BUZZING', { failedPlayers: game.failedPlayers })
+    } catch (err) {
+      console.error('Error in game:start-buzzing:', err)
+    }
   })
 
   socket.on('game:back', ({ code }) => {
-    const game = getGame(code)
-    if (!game || game.hostId !== socket.id) return
-    if (game.phase !== 'REVEALED') return
-    game.phase = 'GRID'
-    game.currentQuestion = null
-    broadcastPhase(game, 'GRID')
+    try {
+      const game = getGame(code)
+      if (!game || game.hostId !== socket.id) return
+      if (game.phase !== 'REVEALED') return
+      game.phase = 'GRID'
+      game.currentQuestion = null
+      broadcastPhase(game, 'GRID')
+    } catch (err) {
+      console.error('Error in game:back:', err)
+    }
   })
 
   socket.on('game:buzz', ({ code }) => {
-    const game = getGame(code)
-    if (!game || game.phase !== 'BUZZING') return
-    if (game.failedPlayers.includes(socket.id)) return
-    if (game.buzzedPlayers.includes(socket.id)) return
-    const player = game.players.find(p => p.id === socket.id)
-    if (!player) return
-    game.buzzedPlayers.push(socket.id)
-    if (game.buzzedPlayers.length === 1) {
-      game.firstBuzz = socket.id
-      game.phase = 'ANSWERING'
-      io.to(game.hostId).emit('game:first-buzz', {
-        playerId: socket.id,
-        playerName: player.name,
-        question: game.board.questions[game.currentQuestion.catIdx][game.currentQuestion.valIdx].question,
-        answer: game.board.questions[game.currentQuestion.catIdx][game.currentQuestion.valIdx].answer
-      })
-      io.to(socket.id).emit('game:you-buzzed')
-      broadcastPhase(game, 'ANSWERING')
+    try {
+      const game = getGame(code)
+      if (!game || game.phase !== 'BUZZING') return
+      if (game.failedPlayers.includes(socket.id)) return
+      if (game.buzzedPlayers.includes(socket.id)) return
+      const player = game.players.find(p => p.id === socket.id)
+      if (!player) return
+      game.buzzedPlayers.push(socket.id)
+      if (game.buzzedPlayers.length === 1) {
+        game.firstBuzz = socket.id
+        game.phase = 'ANSWERING'
+        io.to(game.hostId).emit('game:first-buzz', {
+          playerId: socket.id,
+          playerName: player.name
+        })
+        io.to(socket.id).emit('game:you-buzzed')
+        broadcastPhase(game, 'ANSWERING')
+      }
+    } catch (err) {
+      console.error('Error in game:buzz:', err)
     }
   })
 
   socket.on('game:cancel-buzzing', ({ code }) => {
-    const game = getGame(code)
-    if (!game || game.hostId !== socket.id) return
-    if (game.phase !== 'BUZZING') return
-    game.phase = 'REVEALED'
-    broadcastPhase(game, 'REVEALED')
+    try {
+      const game = getGame(code)
+      if (!game || game.hostId !== socket.id) return
+      if (game.phase !== 'BUZZING') return
+      game.phase = 'REVEALED'
+      broadcastPhase(game, 'REVEALED')
+    } catch (err) {
+      console.error('Error in game:cancel-buzzing:', err)
+    }
   })
 
   socket.on('game:answer-correct', ({ code }) => {
-    const game = getGame(code)
-    if (!game || game.hostId !== socket.id) return
-    if (game.phase !== 'ANSWERING') return
-    const player = game.players.find(p => p.id === game.firstBuzz)
-    if (player) {
-      player.score += (game.currentQuestion.valIdx + 1) * 100
-      io.to(game.code).emit('game:score-update', { playerId: player.id, score: player.score })
+    try {
+      const game = getGame(code)
+      if (!game || game.hostId !== socket.id) return
+      if (game.phase !== 'ANSWERING') return
+      const player = game.players.find(p => p.id === game.firstBuzz)
+      if (player) {
+        player.score += (game.currentQuestion.valIdx + 1) * 100
+        io.to(game.code).emit('game:score-update', { playerId: player.id, score: player.score })
+      }
+      handleQuestionEnd(game)
+    } catch (err) {
+      console.error('Error in game:answer-correct:', err)
     }
-    handleQuestionEnd(game)
   })
 
   socket.on('game:answer-wrong', ({ code }) => {
-    const game = getGame(code)
-    if (!game || game.hostId !== socket.id) return
-    if (game.phase !== 'ANSWERING') return
-    game.failedPlayers.push(game.firstBuzz)
-    const activePlayers = game.players.filter(p => !game.failedPlayers.includes(p.id) && !p.disconnected)
-    if (activePlayers.length === 0) {
-      handleQuestionEnd(game)
-    } else {
-      game.buzzedPlayers = []
-      game.firstBuzz = null
-      game.phase = 'BUZZING'
-      broadcastPhase(game, 'BUZZING', { failedPlayers: game.failedPlayers })
+    try {
+      const game = getGame(code)
+      if (!game || game.hostId !== socket.id) return
+      if (game.phase !== 'ANSWERING') return
+      game.failedPlayers.push(game.firstBuzz)
+      const activePlayers = game.players.filter(p => !game.failedPlayers.includes(p.id) && !p.disconnected)
+      if (activePlayers.length === 0) {
+        handleQuestionEnd(game)
+      } else {
+        game.buzzedPlayers = []
+        game.firstBuzz = null
+        game.phase = 'BUZZING'
+        broadcastPhase(game, 'BUZZING', { failedPlayers: game.failedPlayers })
+      }
+    } catch (err) {
+      console.error('Error in game:answer-wrong:', err)
     }
   })
 
   socket.on('game:cancel-answer', ({ code }) => {
-    const game = getGame(code)
-    if (!game || game.hostId !== socket.id) return
-    if (game.phase !== 'ANSWERING') return
-    game.phase = 'GRID'
-    game.currentQuestion = null
-    game.buzzedPlayers = []
-    game.failedPlayers = []
-    game.firstBuzz = null
-    broadcastPhase(game, 'GRID')
+    try {
+      const game = getGame(code)
+      if (!game || game.hostId !== socket.id) return
+      if (game.phase !== 'ANSWERING') return
+      game.phase = 'GRID'
+      game.currentQuestion = null
+      game.buzzedPlayers = []
+      game.failedPlayers = []
+      game.firstBuzz = null
+      broadcastPhase(game, 'GRID')
+    } catch (err) {
+      console.error('Error in game:cancel-answer:', err)
+    }
   })
 
   socket.on('game:end-question', ({ code }) => {
-    const game = getGame(code)
-    if (!game || game.hostId !== socket.id) return
-    if (game.phase !== 'ANSWERING' && game.phase !== 'BUZZING') return
-    handleQuestionEnd(game)
+    try {
+      const game = getGame(code)
+      if (!game || game.hostId !== socket.id) return
+      if (game.phase !== 'ANSWERING' && game.phase !== 'BUZZING') return
+      handleQuestionEnd(game)
+    } catch (err) {
+      console.error('Error in game:end-question:', err)
+    }
   })
 
   socket.on('game:continue', ({ code }) => {
-    const game = getGame(code)
-    if (!game || game.hostId !== socket.id) return
-    if (game.phase !== 'QUESTION_ENDED') return
-    game.phase = 'GRID'
-    broadcastPhase(game, 'GRID')
+    try {
+      const game = getGame(code)
+      if (!game || game.hostId !== socket.id) return
+      if (game.phase !== 'QUESTION_ENDED') return
+      game.phase = 'GRID'
+      broadcastPhase(game, 'GRID')
+    } catch (err) {
+      console.error('Error in game:continue:', err)
+    }
   })
 
   socket.on('game:host-quit', ({ code }) => {
-    const game = getGame(code)
-    if (!game || game.hostId !== socket.id) return
-    io.to(game.code).emit('game:host-quit')
-    games.delete(code)
+    try {
+      const game = getGame(code)
+      if (!game || game.hostId !== socket.id) return
+      io.to(game.code).emit('game:host-quit')
+      games.delete(code)
+    } catch (err) {
+      console.error('Error in game:host-quit:', err)
+    }
   })
 
   socket.on('disconnect', () => {
-    for (const [code, game] of games) {
-      if (game.hostId === socket.id) {
-        io.to(game.code).emit('host:disconnect')
-        games.delete(code)
-        return
-      }
-      const playerIdx = game.players.findIndex(p => p.id === socket.id)
-      if (playerIdx !== -1) {
-        if (game.phase === 'LOBBY') {
-          game.players.splice(playerIdx, 1)
-          const playerList = game.players.map(p => ({ id: p.id, name: p.name, score: p.score, disconnected: p.disconnected }))
-          io.to(game.hostId).emit('game:player-list', playerList)
-        } else {
-          game.players[playerIdx].disconnected = true
-          const playerList = game.players.map(p => ({ id: p.id, name: p.name, score: p.score, disconnected: p.disconnected }))
-          io.to(game.hostId).emit('game:player-list', playerList)
+    try {
+      for (const [code, game] of games) {
+        if (game.hostId === socket.id) {
+          io.to(game.code).emit('host:disconnect')
+          games.delete(code)
+          return
+        }
+        const playerIdx = game.players.findIndex(p => p.id === socket.id)
+        if (playerIdx !== -1) {
+          if (game.phase === 'LOBBY') {
+            game.players.splice(playerIdx, 1)
+            const playerList = game.players.map(p => ({ id: p.id, name: p.name, score: p.score, disconnected: p.disconnected }))
+            io.to(game.hostId).emit('game:player-list', playerList)
+          } else {
+            game.players[playerIdx].disconnected = true
+            const playerList = game.players.map(p => ({ id: p.id, name: p.name, score: p.score, disconnected: p.disconnected }))
+            io.to(game.hostId).emit('game:player-list', playerList)
+          }
         }
       }
+    } catch (err) {
+      console.error('Error in disconnect handler:', err)
     }
   })
 })
