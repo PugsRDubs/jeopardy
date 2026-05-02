@@ -10,8 +10,6 @@ function HostSelect({ socket, onBack, onSelectBoard, onCreateNew }) {
   const [shareUrl, setShareUrl] = useState('')
   const [copied, setCopied] = useState(false)
 
-  console.log('HostSelect rendered, boards count:', boards.length)
-
   const handleShare = async (board) => {
     const encoded = await encodeBoard(board)
     const url = getShareUrl(encoded)
