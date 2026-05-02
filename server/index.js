@@ -3,6 +3,8 @@ import { createServer } from 'http'
 import { Server } from 'socket.io'
 import { customAlphabet } from 'nanoid'
 
+import path from 'path'
+
 const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'
 const generateCode = customAlphabet(ALPHABET, 6)
 
@@ -90,7 +92,7 @@ function handleQuestionEnd(game) {
     broadcastPhase(game, 'GAME_OVER', { leaderboard })
   } else {
     game.phase = 'QUESTION_ENDED'
-    io.to(game.hostId).emit('game:question-ended', { question, answer })
+    io.to(game.hostId).emit('game:question-ended', { question, answer, leaderboard: buildLeaderboard(game) })
     broadcastPhase(game, 'QUESTION_ENDED')
   }
 }
@@ -329,6 +331,13 @@ io.on('connection', (socket) => {
     broadcastPhase(game, 'GRID')
   })
 
+  socket.on('game:host-quit', ({ code }) => {
+    const game = getGame(code)
+    if (!game || game.hostId !== socket.id) return
+    io.to(game.code).emit('game:host-quit')
+    games.delete(code)
+  })
+
   socket.on('disconnect', () => {
     for (const [code, game] of games) {
       if (game.hostId === socket.id) {
@@ -336,10 +345,14 @@ io.on('connection', (socket) => {
         games.delete(code)
         return
       }
-      const player = game.players.find(p => p.id === socket.id)
-      if (player) {
-        player.disconnected = true
-        if (game.phase !== 'LOBBY') {
+      const playerIdx = game.players.findIndex(p => p.id === socket.id)
+      if (playerIdx !== -1) {
+        if (game.phase === 'LOBBY') {
+          game.players.splice(playerIdx, 1)
+          const playerList = game.players.map(p => ({ id: p.id, name: p.name, score: p.score, disconnected: p.disconnected }))
+          io.to(game.hostId).emit('game:player-list', playerList)
+        } else {
+          game.players[playerIdx].disconnected = true
           const playerList = game.players.map(p => ({ id: p.id, name: p.name, score: p.score, disconnected: p.disconnected }))
           io.to(game.hostId).emit('game:player-list', playerList)
         }
@@ -349,6 +362,12 @@ io.on('connection', (socket) => {
 })
 
 const PORT = process.env.PORT || 3001
+
+app.use(express.static(path.join(process.cwd(), '..', 'client', 'dist')))
+app.get('*', (req, res) => {
+  res.sendFile(path.join(process.cwd(), '..', 'client', 'dist', 'index.html'))
+})
+
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })

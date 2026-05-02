@@ -14,8 +14,8 @@ function Home({ onJoin, codeError, onHost, onCreate }) {
   const displayError = codeError || error
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>Trivia Game</h1>
+    <div style={styles.container} className="page-enter">
+      <h1 style={styles.title}>Not Jeopardy</h1>
 
       <div style={styles.joinSection}>
         <label style={styles.label}>Enter Game Code</label>
@@ -64,7 +64,8 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: '100vh',
-    padding: '2rem'
+    padding: '2rem',
+    background: 'linear-gradient(180deg, rgba(67, 97, 238, 0.08) 0%, transparent 50%)'
   },
   title: {
     fontSize: '3rem',
@@ -84,6 +85,7 @@ const styles = {
   },
   joinRow: {
     display: 'flex',
+    flexDirection: 'column',
     gap: '1rem',
     alignItems: 'center'
   },
@@ -96,7 +98,7 @@ const styles = {
     borderRadius: '8px',
     background: '#2a2a4a',
     color: '#fff',
-    width: '220px',
+    width: '280px',
     outline: 'none'
   },
   joinButton: {
@@ -106,6 +108,7 @@ const styles = {
     background: '#4361ee',
     color: '#fff',
     borderRadius: '8px',
+    width: '280px',
     transition: 'opacity 0.2s'
   },
   error: {

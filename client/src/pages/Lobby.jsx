@@ -1,15 +1,31 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import Avatar from '../components/Avatar'
 
 function Lobby({ socket, gameCode, onBack, onKick, onStart }) {
   const [players, setPlayers] = useState([])
+  const joinSound = useRef(null)
+  const prevPlayerCount = useRef(0)
 
   useEffect(() => {
-    socket.on('game:player-list', setPlayers)
+    joinSound.current = new Audio('/sounds/player-join.wav')
+  }, [])
+
+  useEffect(() => {
+    socket.on('game:player-list', (newPlayers) => {
+      if (newPlayers.length > prevPlayerCount.current) {
+        if (joinSound.current) {
+          joinSound.current.currentTime = 0
+          joinSound.current.play()
+        }
+      }
+      prevPlayerCount.current = newPlayers.length
+      setPlayers(newPlayers)
+    })
     return () => socket.off('game:player-list')
   }, [socket])
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="page-enter">
       <button onClick={onBack} style={styles.backButton}>&larr; Back</button>
       <h1 style={styles.title}>Game Lobby</h1>
       <div style={styles.codeDisplay}>
@@ -20,10 +36,10 @@ function Lobby({ socket, gameCode, onBack, onKick, onStart }) {
         <h2 style={styles.subtitle}>Players ({players.length})</h2>
         {players.map(p => (
           <div key={p.id} style={styles.playerRow}>
-            <span style={styles.playerName}>
-              {p.name}
-              {p.disconnected && <span style={styles.disconnected}> (disconnected)</span>}
-            </span>
+            <div style={styles.playerInfo}>
+              <Avatar name={p.name} size={36} />
+              <span style={styles.playerName}>{p.name}</span>
+            </div>
             <button onClick={() => onKick(p.id)} style={styles.kickButton}>Kick</button>
           </div>
         ))}
@@ -49,7 +65,9 @@ const styles = {
     margin: '0 auto',
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center'
+    alignItems: 'center',
+    background: 'linear-gradient(180deg, rgba(67, 97, 238, 0.08) 0%, transparent 50%)',
+    minHeight: '100vh'
   },
   backButton: {
     alignSelf: 'flex-start',
@@ -67,11 +85,12 @@ const styles = {
     color: '#fff'
   },
   codeDisplay: {
-    background: '#2a2a4a',
+    background: 'linear-gradient(135deg, #2a2a4a 0%, #3a2a5a 100%)',
     padding: '1.5rem 3rem',
     borderRadius: '12px',
     textAlign: 'center',
-    marginBottom: '2rem'
+    marginBottom: '2rem',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
   },
   codeLabel: {
     display: 'block',
@@ -94,23 +113,23 @@ const styles = {
     color: '#aaa',
     marginBottom: '1rem'
   },
+  playerInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.8rem'
+  },
   playerRow: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: '0.8rem 1rem',
-    background: '#2a2a4a',
-    borderRadius: '6px',
+    background: 'linear-gradient(135deg, #2a2a4a 0%, #2a2a5a 100%)',
+    borderRadius: '8px',
     marginBottom: '0.5rem'
   },
   playerName: {
     fontSize: '1.1rem',
     color: '#fff'
-  },
-  disconnected: {
-    color: '#666',
-    fontStyle: 'italic',
-    fontSize: '0.9rem'
   },
   kickButton: {
     padding: '0.3rem 0.7rem',

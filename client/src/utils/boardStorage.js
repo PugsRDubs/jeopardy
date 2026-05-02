@@ -60,4 +60,19 @@ function getBoard(id) {
   return getBoards().find(b => b.id === id)
 }
 
-export { getBoards, createBoard, updateBoard, deleteBoard, renameBoard, getBoard }
+function importBoard(boardData) {
+  const boards = getBoards()
+  const board = {
+    id: nanoid(),
+    name: boardData.name,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    categories: boardData.categories,
+    questions: boardData.questions
+  }
+  boards.push(board)
+  saveBoards(boards)
+  return board
+}
+
+export { getBoards, createBoard, updateBoard, deleteBoard, renameBoard, getBoard, importBoard }

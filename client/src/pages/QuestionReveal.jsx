@@ -1,17 +1,24 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import Confetti from '../components/Confetti'
+import Avatar from '../components/Avatar'
 
 function QuestionReveal({ socket, gameCode, question, phase, onBack, onAnswerComplete, onContinue }) {
   const [firstBuzz, setFirstBuzz] = useState(null)
   const [playersFailed, setPlayersFailed] = useState([])
   const [endedData, setEndedData] = useState(null)
+  const [showConfetti, setShowConfetti] = useState(false)
   const buzzSoundRef = useRef(null)
   const correctSoundRef = useRef(null)
   const wrongSoundRef = useRef(null)
+  const startBuzzRef = useRef(null)
+  const buttonSoundRef = useRef(null)
 
   useEffect(() => {
     buzzSoundRef.current = new Audio('/sounds/buzz.wav')
     correctSoundRef.current = new Audio('/sounds/correct.wav')
     wrongSoundRef.current = new Audio('/sounds/wrong.wav')
+    startBuzzRef.current = new Audio('/sounds/start-buzzing.wav')
+    buttonSoundRef.current = new Audio('/sounds/button.wav')
   }, [])
 
   useEffect(() => {
@@ -38,13 +45,14 @@ function QuestionReveal({ socket, gameCode, question, phase, onBack, onAnswerCom
   }, [phase])
 
   const handleStartBuzzing = useCallback(() => {
+    startBuzzRef.current.currentTime = 0
+    startBuzzRef.current.play()
     socket.emit('game:start-buzzing', { code: gameCode })
   }, [socket, gameCode])
 
   const handleCancelBuzzing = useCallback(() => {
     socket.emit('game:cancel-buzzing', { code: gameCode })
-    onBack()
-  }, [socket, gameCode, onBack])
+  }, [socket, gameCode])
 
   const handleEndQuestion = useCallback(() => {
     socket.emit('game:end-question', { code: gameCode })
@@ -55,6 +63,7 @@ function QuestionReveal({ socket, gameCode, question, phase, onBack, onAnswerCom
     socket.emit('game:answer-correct', { code: gameCode })
     correctSoundRef.current.currentTime = 0
     correctSoundRef.current.play()
+    setShowConfetti(true)
     onAnswerComplete('correct')
   }, [socket, gameCode, onAnswerComplete])
 
@@ -76,12 +85,26 @@ function QuestionReveal({ socket, gameCode, question, phase, onBack, onAnswerCom
   if (phase === 'QUESTION_ENDED' && endedData) {
     return (
       <div style={styles.container}>
+        <Confetti active={showConfetti} />
+        <h2 style={styles.gameCode}>{gameCode}</h2>
         <div style={styles.card}>
           <h2 style={styles.questionText}>{endedData.question}</h2>
           <p style={styles.answerLabel}>Answer:</p>
           <p style={styles.answerText}>{endedData.answer}</p>
         </div>
-        <button onClick={onContinue} style={styles.continueButton}>
+        {endedData.leaderboard && (
+          <div style={styles.leaderboard}>
+            {endedData.leaderboard.map((entry) => (
+              <div key={entry.id} style={styles.leaderboardRow}>
+                <Avatar name={entry.name} size={36} />
+                <span style={styles.lbRank}>#{entry.rank}</span>
+                <span style={styles.lbName}>{entry.name}</span>
+                <span style={styles.lbScore}>{entry.score}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <button onClick={() => { buttonSoundRef.current.currentTime = 0; buttonSoundRef.current.play(); onContinue() }} style={styles.continueButton}>
           Continue
         </button>
       </div>
@@ -91,6 +114,7 @@ function QuestionReveal({ socket, gameCode, question, phase, onBack, onAnswerCom
   if (phase === 'REVEALED') {
     return (
       <div style={styles.container}>
+        <h2 style={styles.gameCode}>{gameCode}</h2>
         <div style={styles.card}>
           <span style={styles.category}>{question.category}</span>
           <span style={styles.value}>{question.value} points</span>
@@ -109,6 +133,7 @@ function QuestionReveal({ socket, gameCode, question, phase, onBack, onAnswerCom
   if (phase === 'BUZZING') {
     return (
       <div style={styles.container}>
+        <h2 style={styles.gameCode}>{gameCode}</h2>
         <div style={styles.card}>
           <span style={styles.category}>{question.category}</span>
           <span style={styles.value}>{question.value} points</span>
@@ -133,6 +158,7 @@ function QuestionReveal({ socket, gameCode, question, phase, onBack, onAnswerCom
   if (phase === 'ANSWERING') {
     return (
       <div style={styles.container}>
+        <h2 style={styles.gameCode}>{gameCode}</h2>
         <div style={styles.card}>
           <span style={styles.category}>{question.category}</span>
           <span style={styles.value}>{question.value} points</span>
@@ -140,6 +166,7 @@ function QuestionReveal({ socket, gameCode, question, phase, onBack, onAnswerCom
         </div>
         {firstBuzz && (
           <div style={styles.buzzPlayer}>
+            <Avatar name={firstBuzz.playerName} size={60} />
             <span style={styles.buzzPlayerLabel}>{firstBuzz.playerName}</span>
             <span style={styles.buzzPlayerText}>buzzed in!</span>
           </div>
@@ -178,8 +205,16 @@ const styles = {
     justifyContent: 'center',
     gap: '2rem'
   },
+  gameCode: {
+    position: 'fixed',
+    top: '1rem',
+    left: '1.5rem',
+    fontSize: '1.2rem',
+    color: '#888',
+    margin: 0
+  },
   card: {
-    background: '#2a2a4a',
+    background: 'linear-gradient(135deg, #2a2a4a 0%, #2a2a5a 100%)',
     padding: '2rem',
     borderRadius: '12px',
     display: 'flex',
@@ -188,7 +223,8 @@ const styles = {
     gap: '0.5rem',
     maxWidth: '800px',
     width: '100%',
-    textAlign: 'center'
+    textAlign: 'center',
+    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.4)'
   },
   category: {
     fontSize: '1rem',
@@ -312,6 +348,37 @@ const styles = {
     fontSize: '1.3rem',
     fontWeight: 'bold',
     borderRadius: '8px'
+  },
+  leaderboard: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.4rem',
+    width: '100%',
+    maxWidth: '500px'
+  },
+  leaderboardRow: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0.6rem 1rem',
+    background: 'linear-gradient(135deg, #2a2a4a 0%, #2a2a5a 100%)',
+    borderRadius: '8px',
+    gap: '0.8rem'
+  },
+  lbRank: {
+    fontSize: '1.1rem',
+    fontWeight: 'bold',
+    color: '#4361ee',
+    width: '35px'
+  },
+  lbName: {
+    fontSize: '1.1rem',
+    color: '#fff',
+    flex: 1
+  },
+  lbScore: {
+    fontSize: '1.2rem',
+    fontWeight: 'bold',
+    color: '#fff'
   }
 }
 

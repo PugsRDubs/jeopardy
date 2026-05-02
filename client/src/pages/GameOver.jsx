@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import Confetti from '../components/Confetti'
+import Avatar from '../components/Avatar'
 
 function GameOver({ leaderboard, onBack }) {
   const [gameOverSound] = useState(() => {
@@ -11,11 +13,13 @@ function GameOver({ leaderboard, onBack }) {
   }, [gameOverSound])
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="page-enter">
+      <Confetti active={true} />
       <h1 style={styles.title}>Game Over!</h1>
       <div style={styles.leaderboard}>
         {leaderboard.map((entry) => (
           <div key={entry.id} style={styles.row}>
+            <Avatar name={entry.name} size={40} />
             <span style={styles.rank}>#{entry.rank}</span>
             <span style={styles.name}>{entry.name}</span>
             <span style={styles.score}>{entry.score}</span>
@@ -53,10 +57,12 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     padding: '1rem 1.5rem',
-    background: '#2a2a4a',
+    background: 'linear-gradient(135deg, #2a2a4a 0%, #2a2a5a 100%)',
     borderRadius: '8px',
     marginBottom: '0.5rem',
-    gap: '1rem'
+    gap: '1rem',
+    transition: 'transform 0.2s',
+    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.2)'
   },
   rank: {
     fontSize: '1.5rem',

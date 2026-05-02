@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import io from 'socket.io-client'
 import Home from './pages/Home'
 import JoinGame from './pages/JoinGame'
@@ -8,6 +8,8 @@ import Lobby from './pages/Lobby'
 import GameGrid from './pages/GameGrid'
 import GameOver from './pages/GameOver'
 import CreateBoard from './pages/CreateBoard'
+import { decodeBoard } from './utils/shareBoard'
+import { importBoard } from './utils/boardStorage'
 
 const socket = io()
 
@@ -20,6 +22,39 @@ function App() {
   const [leaderboard, setLeaderboard] = useState(null)
   const [codeValidated, setCodeValidated] = useState(false)
   const [codeError, setCodeError] = useState('')
+  const [importMsg, setImportMsg] = useState('')
+  const importProcessed = useRef(false)
+  const gameStartSound = useRef(null)
+  const buttonSound = useRef(null)
+
+  useEffect(() => {
+    gameStartSound.current = new Audio('/sounds/game-start.wav')
+    buttonSound.current = new Audio('/sounds/button.wav')
+  }, [])
+
+  useEffect(() => {
+    if (importProcessed.current) return
+    const params = new URLSearchParams(window.location.search)
+    const share = params.get('share')
+    if (share) {
+      importProcessed.current = true
+      decodeBoard(share)
+        .then((board) => {
+          importBoard(board)
+          setImportMsg(`Imported "${board.name}"!`)
+          params.delete('share')
+          const cleanUrl = params.toString()
+            ? `${window.location.pathname}?${params}`
+            : window.location.pathname
+          window.history.replaceState({}, '', cleanUrl)
+          setPage('create-board')
+        })
+        .catch(() => {
+          setImportMsg('Failed to import board. Invalid link.')
+          setPage('create-board')
+        })
+    }
+  }, [])
 
   const goHome = () => {
     setPage('home')
@@ -38,10 +73,6 @@ function App() {
     socket.emit('game:check', { code }, (response) => {
       if (!response.exists) {
         setCodeError('Game not found')
-        return
-      }
-      if (response.phase !== 'LOBBY') {
-        setCodeError('Game already in progress')
         return
       }
       setCodeValidated(true)
@@ -121,6 +152,10 @@ function App() {
             socket.emit('game:kick', { code: gameCode, playerId })
           }}
           onStart={() => {
+            if (gameStartSound.current) {
+              gameStartSound.current.currentTime = 0
+              gameStartSound.current.play()
+            }
             socket.emit('game:started', { code: gameCode })
             setPage('game-grid')
           }}
@@ -147,6 +182,7 @@ function App() {
       {page === 'create-board' && (
         <CreateBoard
           onBack={goHome}
+          importMsg={importMsg}
         />
       )}
     </>

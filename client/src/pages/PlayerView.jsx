@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import BuzzerButton from '../components/BuzzerButton'
+import AnimatedCounter from '../components/AnimatedCounter'
 
 function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
   const [phase, setPhase] = useState(gameState?.phase || 'LOBBY')
@@ -34,11 +35,16 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
       setHostDisconnected(true)
       setTimeout(() => onDisconnect(), 3000)
     })
+    socket.on('game:host-quit', () => {
+      setHostDisconnected(true)
+      setTimeout(() => onDisconnect(), 1000)
+    })
     return () => {
       socket.off('game:phase-change')
       socket.off('game:score-update')
       socket.off('game:you-buzzed')
       socket.off('host:disconnect')
+      socket.off('game:host-quit')
     }
   }, [socket, playerData.id, onDisconnect])
 
@@ -78,7 +84,7 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
       <div style={styles.container}>
         <div style={styles.scoreDisplay}>
           <span style={styles.scoreLabel}>Score</span>
-          <span style={styles.scoreValue}>{score}</span>
+          <span style={styles.scoreValue}><AnimatedCounter value={score} /></span>
         </div>
         <p style={styles.footerName}>{playerData.name}</p>
       </div>
@@ -91,7 +97,7 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
         <div style={styles.container}>
           <div style={styles.scoreDisplay}>
             <span style={styles.scoreLabel}>Score</span>
-            <span style={styles.scoreValue}>{score}</span>
+            <span style={styles.scoreValue}><AnimatedCounter value={score} /></span>
           </div>
           <BuzzerButton onBuzz={handleBuzz} />
           <p style={styles.footerName}>{playerData.name}</p>
@@ -102,9 +108,9 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
       <div style={styles.container}>
         <div style={styles.scoreDisplay}>
           <span style={styles.scoreLabel}>Score</span>
-          <span style={styles.scoreValue}>{score}</span>
+          <span style={styles.scoreValue}><AnimatedCounter value={score} /></span>
         </div>
-        <p style={styles.text}>You cannot buzz</p>
+        <p style={styles.text}>You already answered this question</p>
         <p style={styles.footerName}>{playerData.name}</p>
       </div>
     )
@@ -115,10 +121,10 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
       <div style={styles.container}>
         <div style={styles.scoreDisplay}>
           <span style={styles.scoreLabel}>Score</span>
-          <span style={styles.scoreValue}>{score}</span>
+          <span style={styles.scoreValue}><AnimatedCounter value={score} /></span>
         </div>
         {wasChosen ? (
-          <p style={styles.chosen}>You were chosen!</p>
+          <p style={styles.chosen}>You're up!</p>
         ) : (
           <p style={styles.waiting}>Someone answered...</p>
         )}
@@ -152,6 +158,9 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
             </div>
           ))}
         </div>
+        <button onClick={onDisconnect} style={styles.returnButton}>
+          Return to Menu
+        </button>
         <p style={styles.footerName}>{playerData.name}</p>
       </div>
     )
@@ -189,7 +198,11 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    marginBottom: '2rem'
+    marginBottom: '2rem',
+    padding: '1.5rem 3rem',
+    borderRadius: '12px',
+    background: 'linear-gradient(135deg, rgba(42, 42, 74, 0.8) 0%, rgba(42, 42, 90, 0.8) 100%)',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
   },
   scoreLabel: {
     fontSize: '1rem',
@@ -250,6 +263,15 @@ const styles = {
     bottom: '1rem',
     fontSize: '1.1rem',
     color: '#666'
+  },
+  returnButton: {
+    padding: '0.8rem 2rem',
+    fontSize: '1.1rem',
+    fontWeight: 'bold',
+    background: '#4361ee',
+    color: '#fff',
+    borderRadius: '8px',
+    marginBottom: '2rem'
   }
 }
 

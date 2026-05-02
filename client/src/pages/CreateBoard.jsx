@@ -1,10 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { getBoards, createBoard, updateBoard, deleteBoard, renameBoard, getBoard } from '../utils/boardStorage'
+import { encodeBoard, getShareUrl } from '../utils/shareBoard'
 
-function CreateBoard({ onBack }) {
+function CreateBoard({ onBack, importMsg }) {
   const [boards, setBoards] = useState(getBoards())
   const [currentBoard, setCurrentBoard] = useState(null)
   const [editMode, setEditMode] = useState(false)
+  const [sharingBoard, setSharingBoard] = useState(null)
+  const [shareUrl, setShareUrl] = useState('')
+  const [copied, setCopied] = useState(false)
+  const [dismissedMsg, setDismissedMsg] = useState(false)
   const timerRef = useRef(null)
 
   const handleCreate = () => {
@@ -33,6 +38,25 @@ function CreateBoard({ onBack }) {
       renameBoard(id, name.trim())
       setBoards(getBoards())
     }
+  }
+
+  const handleShare = async (board) => {
+    const encoded = await encodeBoard(board)
+    const url = getShareUrl(encoded)
+    setSharingBoard(board)
+    setShareUrl(url)
+    setCopied(false)
+  }
+
+  const copyShareUrl = async () => {
+    await navigator.clipboard.writeText(shareUrl)
+    setCopied(true)
+  }
+
+  const closeShareModal = () => {
+    setSharingBoard(null)
+    setShareUrl('')
+    setCopied(false)
   }
 
   const updateField = (path, value) => {
@@ -77,6 +101,9 @@ function CreateBoard({ onBack }) {
             onChange={(e) => updateField(['name'], e.target.value)}
             style={styles.boardNameInput}
           />
+          <button onClick={() => handleShare(currentBoard)} style={{ ...styles.backButton, color: '#2ecc71', borderColor: '#2ecc71' }}>
+            Share
+          </button>
         </div>
         <div style={styles.editor}>
           <table style={styles.table}>
@@ -120,6 +147,21 @@ function CreateBoard({ onBack }) {
             </tbody>
           </table>
         </div>
+        {sharingBoard && (
+          <div style={styles.modalOverlay} onClick={closeShareModal}>
+            <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+              <h2 style={styles.modalTitle}>Share "{sharingBoard.name}"</h2>
+              <p style={styles.modalDesc}>Anyone with this link can import this board:</p>
+              <div style={styles.urlBox}>
+                <input readOnly value={shareUrl} style={styles.urlInput} />
+                <button onClick={copyShareUrl} style={styles.copyButton}>
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+              <button onClick={closeShareModal} style={styles.modalClose}>Close</button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -127,6 +169,12 @@ function CreateBoard({ onBack }) {
   return (
     <div style={styles.container}>
       <button onClick={onBack} style={styles.backButton}>&larr; Back</button>
+      {importMsg && !dismissedMsg && (
+        <div style={styles.importBanner}>
+          <span>{importMsg}</span>
+          <button onClick={() => setDismissedMsg(true)} style={styles.dismissBtn}>×</button>
+        </div>
+      )}
       <h1 style={styles.title}>Create Board</h1>
       <div style={styles.boardList}>
         {boards.length === 0 && (
@@ -141,6 +189,7 @@ function CreateBoard({ onBack }) {
             <div style={styles.actions}>
               <button onClick={() => handleRename(board.id)} style={styles.actionBtn}>Rename</button>
               <button onClick={() => handleDelete(board.id)} style={{ ...styles.actionBtn, color: '#ff6b6b' }}>Delete</button>
+              <button onClick={() => handleShare(board)} style={{ ...styles.actionBtn, color: '#2ecc71' }}>Share</button>
               <button onClick={() => handleEdit(board)} style={{ ...styles.actionBtn, color: '#4361ee' }}>Edit</button>
             </div>
           </div>
@@ -149,6 +198,21 @@ function CreateBoard({ onBack }) {
       <button onClick={handleCreate} style={styles.createButton}>
         Create New Board
       </button>
+      {sharingBoard && (
+        <div style={styles.modalOverlay} onClick={closeShareModal}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.modalTitle}>Share "{sharingBoard.name}"</h2>
+            <p style={styles.modalDesc}>Anyone with this link can import this board:</p>
+            <div style={styles.urlBox}>
+              <input readOnly value={shareUrl} style={styles.urlInput} />
+              <button onClick={copyShareUrl} style={styles.copyButton}>
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+            <button onClick={closeShareModal} style={styles.modalClose}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -239,6 +303,92 @@ const styles = {
     color: '#fff',
     borderRadius: '8px',
     width: '100%'
+  },
+  importBanner: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '0.8rem 1.2rem',
+    background: 'linear-gradient(135deg, #1a4a1e 0%, #2a5a2e 100%)',
+    borderRadius: '8px',
+    marginBottom: '1.5rem',
+    fontSize: '1rem',
+    color: '#2ecc71',
+    fontWeight: 'bold'
+  },
+  dismissBtn: {
+    background: 'transparent',
+    color: '#2ecc71',
+    fontSize: '1.4rem',
+    padding: '0 0.3rem',
+    lineHeight: 1
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(0, 0, 0, 0.7)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000
+  },
+  modal: {
+    background: 'linear-gradient(135deg, #2a2a4a 0%, #2a2a5a 100%)',
+    padding: '2rem',
+    borderRadius: '12px',
+    maxWidth: '550px',
+    width: '90%',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '1rem',
+    boxShadow: '0 8px 40px rgba(0, 0, 0, 0.5)'
+  },
+  modalTitle: {
+    fontSize: '1.5rem',
+    color: '#fff',
+    margin: 0
+  },
+  modalDesc: {
+    fontSize: '0.95rem',
+    color: '#888',
+    textAlign: 'center',
+    margin: 0
+  },
+  urlBox: {
+    display: 'flex',
+    width: '100%',
+    gap: '0.5rem'
+  },
+  urlInput: {
+    flex: 1,
+    padding: '0.7rem 1rem',
+    fontSize: '0.85rem',
+    background: '#1a1a2e',
+    color: '#aaa',
+    border: '1px solid #4a4a6a',
+    borderRadius: '6px',
+    outline: 'none'
+  },
+  copyButton: {
+    padding: '0.7rem 1.2rem',
+    background: '#2ecc71',
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: '0.9rem',
+    borderRadius: '6px',
+    whiteSpace: 'nowrap'
+  },
+  modalClose: {
+    padding: '0.7rem 2rem',
+    background: '#4361ee',
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: '1rem',
+    borderRadius: '8px'
   },
   editor: {
     display: 'flex',

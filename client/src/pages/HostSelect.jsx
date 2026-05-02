@@ -1,10 +1,33 @@
 import { useState } from 'react'
 import { getBoards, deleteBoard, renameBoard } from '../utils/boardStorage'
+import { encodeBoard, getShareUrl } from '../utils/shareBoard'
 
 function HostSelect({ socket, onBack, onSelectBoard, onCreateNew }) {
   const [boards, setBoards] = useState(getBoards())
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
+  const [sharingBoard, setSharingBoard] = useState(null)
+  const [shareUrl, setShareUrl] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  const handleShare = async (board) => {
+    const encoded = await encodeBoard(board)
+    const url = getShareUrl(encoded)
+    setSharingBoard(board)
+    setShareUrl(url)
+    setCopied(false)
+  }
+
+  const copyShareUrl = async () => {
+    await navigator.clipboard.writeText(shareUrl)
+    setCopied(true)
+  }
+
+  const closeShareModal = () => {
+    setSharingBoard(null)
+    setShareUrl('')
+    setCopied(false)
+  }
 
   const handleSelect = (board) => {
     if (!isBoardValid(board)) {
@@ -34,7 +57,7 @@ function HostSelect({ socket, onBack, onSelectBoard, onCreateNew }) {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="page-enter">
       <button onClick={onBack} style={styles.backButton}>&larr; Back</button>
       <h1 style={styles.title}>Host a Game</h1>
       <div style={styles.boardList}>
@@ -61,6 +84,7 @@ function HostSelect({ socket, onBack, onSelectBoard, onCreateNew }) {
             <div style={styles.actions}>
               <button onClick={() => startRename(board)} style={styles.actionBtn}>Rename</button>
               <button onClick={() => handleDelete(board.id)} style={{ ...styles.actionBtn, color: '#ff6b6b' }}>Delete</button>
+              <button onClick={() => handleShare(board)} style={{ ...styles.actionBtn, color: '#2ecc71' }}>Share</button>
               <button onClick={() => handleSelect(board)} style={{ ...styles.actionBtn, color: '#4361ee' }}>Host</button>
             </div>
           </div>
@@ -69,6 +93,21 @@ function HostSelect({ socket, onBack, onSelectBoard, onCreateNew }) {
       <button onClick={onCreateNew} style={styles.createButton}>
         Create New Board
       </button>
+      {sharingBoard && (
+        <div style={styles.modalOverlay} onClick={closeShareModal}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.modalTitle}>Share "{sharingBoard.name}"</h2>
+            <p style={styles.modalDesc}>Anyone with this link can import this board:</p>
+            <div style={styles.urlBox}>
+              <input readOnly value={shareUrl} style={styles.urlInput} />
+              <button onClick={copyShareUrl} style={styles.copyButton}>
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+            <button onClick={closeShareModal} style={styles.modalClose}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -89,7 +128,9 @@ const styles = {
   container: {
     padding: '2rem',
     maxWidth: '700px',
-    margin: '0 auto'
+    margin: '0 auto',
+    background: 'linear-gradient(180deg, rgba(67, 97, 238, 0.08) 0%, transparent 50%)',
+    minHeight: '100vh'
   },
   backButton: {
     padding: '0.5rem 1rem',
@@ -168,6 +209,73 @@ const styles = {
     color: '#fff',
     borderRadius: '8px',
     width: '100%'
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(0, 0, 0, 0.7)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000
+  },
+  modal: {
+    background: 'linear-gradient(135deg, #2a2a4a 0%, #2a2a5a 100%)',
+    padding: '2rem',
+    borderRadius: '12px',
+    maxWidth: '550px',
+    width: '90%',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '1rem',
+    boxShadow: '0 8px 40px rgba(0, 0, 0, 0.5)'
+  },
+  modalTitle: {
+    fontSize: '1.5rem',
+    color: '#fff',
+    margin: 0
+  },
+  modalDesc: {
+    fontSize: '0.95rem',
+    color: '#888',
+    textAlign: 'center',
+    margin: 0
+  },
+  urlBox: {
+    display: 'flex',
+    width: '100%',
+    gap: '0.5rem'
+  },
+  urlInput: {
+    flex: 1,
+    padding: '0.7rem 1rem',
+    fontSize: '0.85rem',
+    background: '#1a1a2e',
+    color: '#aaa',
+    border: '1px solid #4a4a6a',
+    borderRadius: '6px',
+    outline: 'none'
+  },
+  copyButton: {
+    padding: '0.7rem 1.2rem',
+    background: '#2ecc71',
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: '0.9rem',
+    borderRadius: '6px',
+    whiteSpace: 'nowrap'
+  },
+  modalClose: {
+    padding: '0.7rem 2rem',
+    background: '#4361ee',
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: '1rem',
+    borderRadius: '8px'
   }
 }
 

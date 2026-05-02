@@ -16,7 +16,7 @@ function JoinGame({ code, socket, onConnected, onBack }) {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="page-enter">
       <button onClick={onBack} style={styles.backButton}>&larr; Back</button>
       <div style={styles.card}>
         <h2 style={styles.title}>Enter Your Name</h2>
@@ -54,7 +54,8 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: '100vh',
-    padding: '2rem'
+    padding: '2rem',
+    background: 'linear-gradient(180deg, rgba(67, 97, 238, 0.08) 0%, transparent 50%)'
   },
   backButton: {
     position: 'absolute',
