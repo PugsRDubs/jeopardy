@@ -12,8 +12,8 @@ const app = express()
 const httpServer = createServer(app)
 const io = new Server(httpServer, {
   cors: { origin: '*' },
-  pingInterval: 5000,
-  pingTimeout: 10000
+  pingInterval: 10000,
+  pingTimeout: 5000
 })
 
 const games = new Map()
