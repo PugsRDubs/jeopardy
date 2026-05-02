@@ -12,7 +12,7 @@ import { decodeBoard } from './utils/shareBoard'
 import { importBoard } from './utils/boardStorage'
 
 const socket = io({
-  transports: ['websocket', 'polling'],
+  transports: ['polling', 'websocket'],
   reconnection: true,
   reconnectionDelay: 1000,
   reconnectionAttempts: 10
@@ -59,6 +59,15 @@ function App() {
           setPage('create-board')
         })
     }
+  }, [])
+
+  useEffect(() => {
+    socket.on('game:created', ({ code }) => {
+      console.log('App: game:created received', code)
+      setGameCode(code)
+      setPage('lobby')
+    })
+    return () => socket.off('game:created')
   }, [])
 
   const goHome = () => {
@@ -142,11 +151,7 @@ function App() {
           onSelectBoard={(board) => {
             console.log('App: onSelectBoard called', board.name)
             setCurrentBoard(board)
-            socket.emit('game:create', { board }, (response) => {
-              console.log('App: game:create callback', response)
-              setGameCode(response.code)
-              setPage('lobby')
-            })
+            socket.emit('game:create', { board })
           }}
         />
       )}

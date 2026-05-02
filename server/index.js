@@ -106,10 +106,10 @@ io.on('connection', (socket) => {
     callback({ exists: !!game, phase: game ? game.phase : null })
   })
 
-  socket.on('game:create', ({ board }, callback) => {
+  socket.on('game:create', ({ board }) => {
     const code = createGame(socket.id, board)
     socket.join(code)
-    callback({ code })
+    socket.emit('game:created', { code })
   })
 
   socket.on('game:join', ({ code, name }, callback) => {
