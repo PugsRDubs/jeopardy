@@ -152,21 +152,6 @@ function PlayerView({ socket, playerData, gameCode, gameState, onDisconnect }) {
             You placed #{playerRank.rank} with {playerRank.score} points!
           </p>
         )}
-        <div style={styles.leaderboard}>
-          {leaderboard.map((entry) => (
-            <div
-              key={entry.id}
-              style={{
-                ...styles.leaderboardRow,
-                background: entry.id === playerData.id ? '#4361ee' : '#2a2a4a'
-              }}
-            >
-              <span style={styles.rank}>#{entry.rank}</span>
-              <span style={styles.name}>{entry.name}</span>
-              <span style={styles.score}>{entry.score}</span>
-            </div>
-          ))}
-        </div>
         <button onClick={onDisconnect} style={styles.returnButton}>
           Return to Menu
         </button>
@@ -255,6 +240,11 @@ const styles = {
     padding: '0.8rem 1.2rem',
     borderRadius: '8px',
     gap: '1rem'
+  },
+  lbName: {
+    fontSize: '1.1rem',
+    color: '#fff',
+    flex: 1
   },
   rank: {
     fontSize: '1.2rem',
