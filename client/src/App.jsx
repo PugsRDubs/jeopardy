@@ -11,7 +11,12 @@ import CreateBoard from './pages/CreateBoard'
 import { decodeBoard } from './utils/shareBoard'
 import { importBoard } from './utils/boardStorage'
 
-const socket = io()
+const socket = io({
+  transports: ['websocket', 'polling'],
+  reconnection: true,
+  reconnectionDelay: 1000,
+  reconnectionAttempts: 10
+})
 
 function App() {
   const [page, setPage] = useState('home')

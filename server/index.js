@@ -11,7 +11,9 @@ const generateCode = customAlphabet(ALPHABET, 6)
 const app = express()
 const httpServer = createServer(app)
 const io = new Server(httpServer, {
-  cors: { origin: '*' }
+  cors: { origin: '*' },
+  pingInterval: 5000,
+  pingTimeout: 10000
 })
 
 const games = new Map()
