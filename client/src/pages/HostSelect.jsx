@@ -30,10 +30,14 @@ function HostSelect({ socket, onBack, onSelectBoard, onCreateNew }) {
   }
 
   const handleSelect = (board) => {
+    console.log('Attempting to host board:', board.name, 'id:', board.id)
+    console.log('Board categories:', board.categories)
+    console.log('Board questions:', board.questions)
     if (!isBoardValid(board)) {
       alert('Board must have all 6 categories and 30 questions/answers filled in.')
       return
     }
+    console.log('Board is valid, calling onSelectBoard')
     onSelectBoard(board)
   }
 

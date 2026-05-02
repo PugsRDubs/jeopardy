@@ -140,9 +140,11 @@ function App() {
           onBack={goHome}
           onCreateNew={() => setPage('create-board')}
           onSelectBoard={(board) => {
+            console.log('App: onSelectBoard called', board.name)
             setCurrentBoard(board)
-            socket.emit('game:create', { board }, ({ code }) => {
-              setGameCode(code)
+            socket.emit('game:create', { board }, (response) => {
+              console.log('App: game:create callback', response)
+              setGameCode(response.code)
               setPage('lobby')
             })
           }}
