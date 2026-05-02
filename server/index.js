@@ -2,8 +2,8 @@ import express from 'express'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import { customAlphabet } from 'nanoid'
-
 import path from 'path'
+import fs from 'fs'
 
 const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'
 const generateCode = customAlphabet(ALPHABET, 6)
@@ -363,9 +363,15 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3001
 
-app.use(express.static(path.join(process.cwd(), '..', 'client', 'dist')))
+const distPath = path.join(process.cwd(), '..', 'client', 'dist')
+app.use(express.static(distPath))
 app.get('*', (req, res) => {
-  res.sendFile(path.join(process.cwd(), '..', 'client', 'dist', 'index.html'))
+  const indexPath = path.join(distPath, 'index.html')
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath)
+  } else {
+    res.status(503).send('App is building, please refresh in a moment.')
+  }
 })
 
 httpServer.listen(PORT, () => {
