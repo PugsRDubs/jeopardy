@@ -363,7 +363,7 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3001
 
-const distPath = path.join(process.cwd(), '..', 'client', 'dist')
+const distPath = path.join(process.cwd(), 'client', 'dist')
 app.use(express.static(distPath))
 app.get('*', (req, res) => {
   const indexPath = path.join(distPath, 'index.html')
