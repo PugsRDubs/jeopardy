@@ -236,6 +236,21 @@ function generateCellHover() {
   return samples
 }
 
+function generateCountdownBeep() {
+  const sr = 44100
+  const dur = 0.15
+  const n = Math.floor(sr * dur)
+  const samples = []
+  for (let i = 0; i < n; i++) {
+    const t = i / sr
+    const env = Math.exp(-t * 20)
+    const osc = Math.sin(2 * Math.PI * 440 * t)
+    const s = osc * env * 0.3
+    samples.push(s)
+  }
+  return samples
+}
+
 const outDir = path.join(process.cwd(), 'client', 'public', 'sounds')
 fs.mkdirSync(outDir, { recursive: true })
 
@@ -271,5 +286,8 @@ console.log('Generated: quit.wav')
 
 fs.writeFileSync(path.join(outDir, 'cell-hover.wav'), createWav(generateCellHover()))
 console.log('Generated: cell-hover.wav')
+
+fs.writeFileSync(path.join(outDir, 'countdown-beep.wav'), createWav(generateCountdownBeep()))
+console.log('Generated: countdown-beep.wav')
 
 console.log('All sounds generated!')

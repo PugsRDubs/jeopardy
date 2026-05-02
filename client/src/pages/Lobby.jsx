@@ -3,11 +3,14 @@ import Avatar from '../components/Avatar'
 
 function Lobby({ socket, gameCode, onBack, onKick, onStart }) {
   const [players, setPlayers] = useState([])
+  const [countdown, setCountdown] = useState(null)
   const joinSound = useRef(null)
+  const countdownBeep = useRef(null)
   const prevPlayerCount = useRef(0)
 
   useEffect(() => {
     joinSound.current = new Audio('/sounds/player-join.wav')
+    countdownBeep.current = new Audio('/sounds/countdown-beep.wav')
   }, [])
 
   useEffect(() => {
@@ -23,6 +26,28 @@ function Lobby({ socket, gameCode, onBack, onKick, onStart }) {
     })
     return () => socket.off('game:player-list')
   }, [socket])
+
+  useEffect(() => {
+    if (countdown === null) return
+    if (countdown === 0) {
+      onStart()
+      return
+    }
+    if (countdownBeep.current) {
+      countdownBeep.current.currentTime = 0
+      countdownBeep.current.play()
+    }
+    const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [countdown, onStart])
+
+  const handleStart = () => {
+    setCountdown(3)
+  }
+
+  const handleCancel = () => {
+    setCountdown(null)
+  }
 
   return (
     <div style={styles.container} className="page-enter">
@@ -45,15 +70,22 @@ function Lobby({ socket, gameCode, onBack, onKick, onStart }) {
         ))}
       </div>
       <button
-        onClick={onStart}
-        disabled={players.length < 2}
+        onClick={handleStart}
+        disabled={players.length < 2 || countdown !== null}
         style={{
           ...styles.startButton,
-          opacity: players.length >= 2 ? 1 : 0.4
+          opacity: players.length >= 2 && countdown === null ? 1 : 0.4
         }}
       >
         Start Game
       </button>
+
+      {countdown !== null && (
+        <div style={styles.countdownOverlay} onClick={e => e.stopPropagation()}>
+          <div style={styles.countdownNumber} key={countdown}>{countdown > 0 ? countdown : 'GO!'}</div>
+          <button onClick={handleCancel} style={styles.cancelButton}>Cancel</button>
+        </div>
+      )}
     </div>
   )
 }
@@ -147,6 +179,35 @@ const styles = {
     color: '#fff',
     borderRadius: '8px',
     transition: 'opacity 0.2s'
+  },
+  countdownOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(17, 17, 39, 0.7)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000
+  },
+  countdownNumber: {
+    fontSize: '10rem',
+    fontWeight: 'bold',
+    color: '#4361ee',
+    marginBottom: '2rem',
+    animation: 'countdown-pulse 0.5s ease-out'
+  },
+  cancelButton: {
+    padding: '0.8rem 2rem',
+    fontSize: '1.1rem',
+    background: 'transparent',
+    color: '#ff6b6b',
+    border: '2px solid #ff6b6b',
+    borderRadius: '8px',
+    cursor: 'pointer'
   }
 }
 

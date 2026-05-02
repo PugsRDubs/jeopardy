@@ -10,9 +10,13 @@ function GameGrid({ socket, gameCode, board, onGameOver, onBack }) {
   )
   const [currentQuestion, setCurrentQuestion] = useState(null)
   const [phase, setPhase] = useState('GRID')
+  const [gridKey, setGridKey] = useState(0)
   const [gridSize, setGridSize] = useState({ scale: 1, width: 0, height: 0 })
+  const [animRect, setAnimRect] = useState(null)
+  const [animStage, setAnimStage] = useState('idle')
   const containerRef = useRef(null)
   const headerRef = useRef(null)
+  const overlayRef = useRef(null)
   const onGameOverRef = useRef(onGameOver)
   const cellClickRef = useRef(null)
   const quitSound = useRef(null)
@@ -72,6 +76,30 @@ function GameGrid({ socket, gameCode, board, onGameOver, onBack }) {
     }
   }, [socket])
 
+  useEffect(() => {
+    if (phase === 'GRID') {
+      setAnimRect(null)
+      setAnimStage('idle')
+      setGridKey(prev => prev + 1)
+    }
+  }, [phase])
+
+  useEffect(() => {
+    if (phase === 'REVEALED' && animRect && animStage === 'idle') {
+      setAnimStage('expanding')
+    }
+  }, [phase, animRect, animStage])
+
+  useEffect(() => {
+    if (animStage === 'expanding' && overlayRef.current) {
+      overlayRef.current.style.transform = `translate(${animRect.tx}px, ${animRect.ty}px) scale(${animRect.sx}, ${animRect.sy})`
+      overlayRef.current.style.transition = 'none'
+      overlayRef.current.offsetHeight
+      overlayRef.current.style.transition = 'transform 500ms cubic-bezier(0.4, 0, 0.2, 1)'
+      overlayRef.current.style.transform = 'none'
+    }
+  }, [animStage])
+
   const handleBack = useCallback(() => {
     socket.emit('game:back', { code: gameCode })
     setCurrentQuestion(null)
@@ -123,19 +151,22 @@ function GameGrid({ socket, gameCode, board, onGameOver, onBack }) {
     cell.style.background = 'linear-gradient(135deg, #3a3a5e 0%, #3a3a70 100%)'
   }, [])
 
-  if (phase === 'REVEALED' || phase === 'BUZZING' || phase === 'ANSWERING' || phase === 'QUESTION_ENDED') {
-    return (
-      <QuestionReveal
-        socket={socket}
-        gameCode={gameCode}
-        question={currentQuestion}
-        phase={phase}
-        onBack={handleBack}
-        onAnswerComplete={handleAnswerComplete}
-        onContinue={handleContinue}
-      />
-    )
-  }
+  const handleCellClick = useCallback((e, col, row) => {
+    const completed = questionStates[col]?.[row]
+    if (completed || phase !== 'GRID') return
+    const cellEl = e.currentTarget
+    const rect = cellEl.getBoundingClientRect()
+    const tx = rect.left
+    const ty = rect.top
+    const sx = rect.width / window.innerWidth
+    const sy = rect.height / window.innerHeight
+    setAnimRect({ tx, ty, sx, sy })
+    cellClickRef.current.currentTime = 0
+    cellClickRef.current.play()
+    socket.emit('game:select-question', { code: gameCode, catIdx: col, valIdx: row })
+  }, [questionStates, phase, socket, gameCode])
+
+  const isAnimating = animRect && animStage !== 'idle'
 
   return (
     <div style={styles.container} ref={containerRef} className="page-enter">
@@ -148,7 +179,7 @@ function GameGrid({ socket, gameCode, board, onGameOver, onBack }) {
         width: gridSize.width,
         height: gridSize.height,
       }}>
-        <table style={{ ...styles.grid, borderSpacing: `${8 * gridSize.scale}px` }}>
+        <table key={gridKey} style={{ ...styles.grid, borderSpacing: `${8 * gridSize.scale}px` }}>
           <colgroup>
             {board.categories.map((_, i) => (
               <col key={i} style={{ width: `${200 * gridSize.scale}px` }} />
@@ -186,13 +217,7 @@ function GameGrid({ socket, gameCode, board, onGameOver, onBack }) {
                       className={completed ? 'cell-completed' : 'cell-active'}
                       onMouseMove={!completed ? handleCellMouseMove : undefined}
                       onMouseLeave={!completed ? handleCellMouseLeave : undefined}
-                      onClick={() => {
-                        if (!completed && phase === 'GRID') {
-                          cellClickRef.current.currentTime = 0
-                          cellClickRef.current.play()
-                          socket.emit('game:select-question', { code: gameCode, catIdx: col, valIdx: row })
-                        }
-                      }}
+                      onClick={(e) => handleCellClick(e, col, row)}
                     >
                       {!completed ? (row + 1) * 100 : ''}
                     </td>
@@ -203,6 +228,37 @@ function GameGrid({ socket, gameCode, board, onGameOver, onBack }) {
           </tbody>
         </table>
       </div>
+
+      {isAnimating && (
+        <div
+          ref={overlayRef}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'linear-gradient(180deg, #111127 0%, #1a1a2e 50%, #1e1e38 100%)',
+            transformOrigin: 'top left',
+            zIndex: 1000,
+          }}
+          onTransitionEnd={(e) => {
+            if (e.propertyName === 'transform') {
+              setAnimStage('done')
+            }
+          }}
+        >
+          <QuestionReveal
+            socket={socket}
+            gameCode={gameCode}
+            question={currentQuestion}
+            phase={phase}
+            onBack={handleBack}
+            onAnswerComplete={handleAnswerComplete}
+            onContinue={handleContinue}
+          />
+        </div>
+      )}
     </div>
   )
 }

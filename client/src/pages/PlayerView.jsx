@@ -237,7 +237,8 @@ const styles = {
     flexDirection: 'column',
     gap: '0.5rem',
     width: '100%',
-    maxWidth: '400px'
+    maxWidth: '400px',
+    marginBottom: '2rem'
   },
   leaderboardRow: {
     display: 'flex',

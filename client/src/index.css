@@ -6,7 +6,7 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: linear-gradient(180deg, #111127 0%, #1a1a2e 50%, #1e1e38 100%);
+  background: #111127 linear-gradient(180deg, #111127 0%, #1a1a2e 50%, #1e1e38 100%);
   background-attachment: fixed;
   color: #eee;
   min-height: 100vh;
@@ -44,4 +44,10 @@ input, textarea {
 
 .page-enter {
   animation: fadeIn 0.4s ease, slideUp 0.4s ease;
+}
+
+@keyframes countdown-pulse {
+  0% { opacity: 0; transform: scale(0.5); }
+  60% { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
 }
